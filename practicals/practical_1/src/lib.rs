@@ -4,6 +4,9 @@ pub use crate::error::my_errors::{ErrorType, Logger};
 pub mod shutdown;
 pub use shutdown::*;
 
+pub mod cgi;
+pub use cgi::*;
+
 pub mod api;
 pub use api::*;
 
