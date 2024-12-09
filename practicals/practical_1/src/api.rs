@@ -10,6 +10,7 @@ use std::thread;
 use std::time::Duration;
 use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::process::Command;
 use tokio::sync::Mutex;
 
 pub async fn read_file_to_bytes(path: &str) -> Vec<u8> {
@@ -66,6 +67,35 @@ async fn handle_get(request: Request, logger: Arc<Mutex<Logger>>) -> Response {
         response.add_body(read_file_to_bytes("static/index.html").await);
     } else if request.uri == "/home" {
         response.add_body(read_file_to_bytes("static/home.html").await);
+    } else if request.uri == "/fib" {
+        let output = match Command::new("cgi/cgi").arg("next").output().await {
+            Ok(o) => o,
+            Err(e) => {
+                eprintln!("{:?}", e);
+                response.add_body(read_file_to_bytes("static/home.html").await);
+                return response;
+            }
+        };
+        response.add_body(output.stdout);
+    } else if request.uri == "/fib/next" {
+        let output = match Command::new("./cgi/cgi").arg("next").output().await {
+            Ok(o) => o,
+            Err(e) => {
+                eprintln!("{:?}", e);
+                response.add_body(read_file_to_bytes("static/home.html").await);
+                return response;
+            }
+        };
+        response.add_body(output.stdout);
+    } else if request.uri == "/fib/prev" {
+        let output = match Command::new("./cgi/cgi").arg("prev").output().await {
+            Ok(o) => o,
+            Err(_) => {
+                response.add_body(read_file_to_bytes("static/home.html").await);
+                return response;
+            }
+        };
+        response.add_body(output.stdout);
     } else {
         response.add_body(read_file_to_bytes("static/index.html").await);
     }

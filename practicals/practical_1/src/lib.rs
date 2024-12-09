@@ -5,7 +5,6 @@ pub mod shutdown;
 pub use shutdown::*;
 
 pub mod fib;
-pub use crate::fib::*;
 
 pub mod api;
 pub use api::*;
