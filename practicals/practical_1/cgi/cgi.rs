@@ -4,7 +4,7 @@ use std::{env, fs};
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    let arg: bool = match &args[1][..] {
+    let increase_sequence: bool = match &args[1][..] {
         "next" => true,
         _ => false,
     };
@@ -18,7 +18,7 @@ fn main() {
         numbers.push_back(line.trim().parse::<u64>().expect("Error parsing numbers"));
     }
 
-    if arg {
+    if increase_sequence {
         next(&mut numbers);
     } else {
         prev(&mut numbers);
@@ -56,13 +56,18 @@ fn print_html(numbers: &VecDeque<u64>) {
 }
 
 fn prev(numbers: &mut VecDeque<u64>) {
-    let prev_sequence: u64 = numbers[1] - numbers[0];
-    numbers.pop_back();
-    numbers.push_back(prev_sequence);
+    if numbers[0] == 0 {
+        numbers.clear();
+        numbers.push_back(0);
+        numbers.push_back(1);
+        numbers.push_back(1);
+    } else {
+        numbers.pop_back();
+        numbers.push_front(numbers[1] - numbers[0]);
+    }
 }
 
 fn next(numbers: &mut VecDeque<u64>) {
-    let next_sequence: u64 = numbers[1] + numbers[2];
     numbers.pop_front();
-    numbers.push_back(next_sequence);
+    numbers.push_back(numbers[0] + numbers[1]);
 }

@@ -2,6 +2,7 @@ use crate::{ContentType, ErrorType, HttpCode, HttpMethod, Logger, MyDefault, Req
 use argon2::password_hash::SaltString;
 use argon2::PasswordHash;
 use argon2::{Argon2, PasswordHasher, PasswordVerifier};
+use core::str;
 use rand::rngs::OsRng;
 use rand::Rng;
 use std::collections::HashMap;
@@ -68,7 +69,7 @@ async fn handle_get(request: Request, logger: Arc<Mutex<Logger>>) -> Response {
     } else if request.uri == "/home" {
         response.add_body(read_file_to_bytes("static/home.html").await);
     } else if request.uri == "/fib" {
-        let output = match Command::new("cgi/cgi").arg("next").output().await {
+        let output = match Command::new("./cgi/cgi").arg("next").output().await {
             Ok(o) => o,
             Err(e) => {
                 eprintln!("{:?}", e);
@@ -76,6 +77,16 @@ async fn handle_get(request: Request, logger: Arc<Mutex<Logger>>) -> Response {
                 return response;
             }
         };
+
+        if output.status.success() {
+            println!("CGI executed successfully:");
+            println!("{}", String::from_utf8_lossy(&output.stdout));
+        } else {
+            eprintln!("CGI execution failed:");
+            eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+            response.add_body(read_file_to_bytes("static/home.html").await);
+            return response;
+        }
         response.add_body(output.stdout);
     } else if request.uri == "/fib/next" {
         let output = match Command::new("./cgi/cgi").arg("next").output().await {
