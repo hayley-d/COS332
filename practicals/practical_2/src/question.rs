@@ -7,12 +7,19 @@ pub struct Question {
 }
 
 impl Question {
-    pub fn new(question: String, options: Vec<String>, answers: Vec<usize>) -> Self {
+    pub fn new(question: String) -> Self {
         return Question {
             question,
-            options,
-            answers,
+            options: Vec::new(),
+            answers: Vec::new(),
         };
+    }
+
+    pub fn add_option(&mut self, option: String, is_answer: bool) {
+        self.options.push(option);
+        if is_answer {
+            self.answers.push(self.options.len() - 1);
+        }
     }
 
     pub fn print(&self) -> String {
@@ -32,7 +39,56 @@ impl Question {
                 std::process::exit(1);
             }
         };
-        println!("{}", file);
-        return Vec::new();
+
+        let mut questions: Vec<Question> = Vec::new();
+
+        let lines: Vec<String> = file.lines().map(|s| s.to_string()).collect();
+        let mut i: usize = 0;
+        while i < lines.len() {
+            let marker: &Option<char> = &lines[i].chars().nth(0);
+
+            match marker {
+                Some('?') => {
+                    let question: String = lines[i][1..].to_string();
+                    let mut question: Question = Question::new(question);
+
+                    let mut j: usize = i + 1;
+
+                    while j < lines.len() {
+                        let marker: &Option<char> = &lines[j].chars().nth(0);
+                        match marker {
+                            Some('?') => {
+                                questions.push(question);
+                                i = j;
+                                break;
+                            }
+                            Some('-') => {
+                                let _ =
+                                    &question.add_option(lines[j][1..].trim().to_string(), false);
+                                j += 1;
+                                continue;
+                            }
+                            Some('+') => {
+                                let _ =
+                                    &question.add_option(lines[j][1..].trim().to_string(), true);
+                                j += 1;
+                                continue;
+                            }
+                            _ => {
+                                j += 1;
+                                continue;
+                            }
+                        }
+                    }
+                    continue;
+                }
+                _ => {
+                    i += 1;
+                    continue;
+                }
+            }
+        }
+
+        return questions;
     }
 }
