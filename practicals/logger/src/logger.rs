@@ -1,12 +1,22 @@
 use std::fmt::Display;
 
+use tokio::sync::Mutex;
+
+use crate::config::Config;
+
 pub struct Logger {
     level: Level,
+    config: Config,
+    output_lock: Mutex<()>,
 }
 
 impl Logger {
-    pub fn new(config: config::Config) -> Logger {
-        Logger
+    pub fn new(level: Level, config: Config) -> Box<Logger> {
+        return Box::new(Logger {
+            level,
+            config,
+            output_lock: Mutex::new(()),
+        });
     }
 }
 
