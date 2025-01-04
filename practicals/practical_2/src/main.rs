@@ -1,25 +1,26 @@
-use core::str;
+use std::collections::HashSet;
 
 use practical_2::question::Question;
 use rand::Rng;
-use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 
 #[tokio::main]
 async fn main() {
-    game().await;
+    println!("Hello");
+    let _ = game().await;
 }
 
-async fn game() {
+async fn game() -> () {
     let questions: Vec<Question> = Question::parse_file().await;
 
     loop {
-        print!("Do you want a question? (y/n): ");
+        println!("Do you want a question? (y/n): ");
+        //io::stdout().flush().await.unwrap();
 
-        let _ = io::stdout().flush().await;
+        let mut stdin = io::BufReader::new(io::stdin());
+        let mut input: String = String::new();
 
-        let mut input: Vec<u8> = Vec::new();
-
-        match io::stdin().read_to_end(&mut input).await {
+        match stdin.read_line(&mut input).await {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("Error: {:?}", e);
@@ -27,23 +28,15 @@ async fn game() {
             }
         }
 
-        let input: String = match str::from_utf8(&input) {
-            Ok(s) => s.trim().to_lowercase(),
-            Err(e) => {
-                eprintln!("Error: {:?}", e);
-                std::process::exit(1);
-            }
-        };
-
-        match input.as_str() {
+        match input.as_str().trim() {
             "y" => {
                 let random = rand::thread_rng().gen_range(0..questions.len());
+                println!("Enter the number of the correct answer (e.g. 1 or 1,2 or leave blank for none): ");
                 println!("{}", questions[random].print());
-                println!("Enter the number of the correct answer (e.g. 1 or 1,2 or leave blank for none)");
-                let _ = io::stdout().flush().await;
+                //io::stdout().flush().await.unwrap();
 
-                let mut answer_input: Vec<u8> = Vec::new();
-                match io::stdin().read_to_end(&mut answer_input).await {
+                let mut answer_input: String = String::new();
+                match stdin.read_line(&mut answer_input).await {
                     Ok(_) => (),
                     Err(e) => {
                         eprintln!("Error: {:?}", e);
@@ -51,19 +44,13 @@ async fn game() {
                     }
                 }
 
-                let answers: Vec<usize> = match str::from_utf8(&answer_input) {
-                    Ok(s) => s
-                        .trim()
-                        .split(',')
-                        .filter_map(|s| s.parse::<usize>().ok().map(|n| n - 1))
-                        .collect(),
-                    Err(e) => {
-                        eprintln!("Error: {:?}", e);
-                        std::process::exit(1);
-                    }
-                };
+                let answers: HashSet<usize> = answer_input
+                    .trim()
+                    .split(',')
+                    .filter_map(|s| s.parse::<usize>().ok().map(|n| n - 1))
+                    .collect();
 
-                questions[random].check_answer(answers);
+                questions[random].check_answer(answers.into_iter().collect());
                 continue;
             }
             "n" => {
