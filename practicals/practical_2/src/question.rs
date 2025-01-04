@@ -23,11 +23,11 @@ impl Question {
     }
 
     pub fn print(&self) -> String {
-        let mut output: String = format!("\033[1;34mQuestion: {}\x1b[0m", self.question);
+        let mut output = format!("\x1b[1;34mQuestion: {}\x1b[0m\n", self.question);
         for (i, option) in self.options.iter().enumerate() {
-            output.push_str(format!("({}) {}", i, option).as_str());
+            let formatted_option = format!("({}) {}\n", i, option);
+            output.push_str(formatted_option.as_str());
         }
-
         return output;
     }
 
@@ -53,13 +53,11 @@ impl Question {
                     let mut question: Question = Question::new(question);
 
                     let mut j: usize = i + 1;
-
                     while j < lines.len() {
                         let marker: &Option<char> = &lines[j].chars().nth(0);
                         match marker {
                             Some('?') => {
                                 questions.push(question);
-                                i = j;
                                 break;
                             }
                             Some('-') => {
@@ -80,6 +78,7 @@ impl Question {
                             }
                         }
                     }
+                    i = j;
                     continue;
                 }
                 _ => {
