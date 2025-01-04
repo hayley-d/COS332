@@ -25,10 +25,30 @@ impl Question {
     pub fn print(&self) -> String {
         let mut output = format!("\x1b[1;34mQuestion: {}\x1b[0m\n", self.question);
         for (i, option) in self.options.iter().enumerate() {
-            let formatted_option = format!("({}) {}\n", i, option);
+            let formatted_option = format!("({}) {}\n", i + 1, option);
             output.push_str(formatted_option.as_str());
         }
         return output;
+    }
+
+    pub fn check_answer(&self, answers: Vec<usize>) {
+        if answers != self.answers {
+            println!("\x1b[1;31mIncorrect\x1b[0m the question answers are:");
+
+            if self.answers.is_empty() {
+                println!("\x1b[1;31mNo correct answers\x1b[0m");
+            } else {
+                for i in &self.answers {
+                    if answers.contains(&i) {
+                        println!("\x1b[1;32m{}\x1b[0m", self.options[*i]);
+                    } else {
+                        println!("\x1b[1;31m{}\x1b[0m", self.options[*i]);
+                    }
+                }
+            }
+        } else {
+            println!("\x1b[1;32mCorrect!\x1b[0m");
+        }
     }
 
     pub async fn parse_file() -> Vec<Question> {
