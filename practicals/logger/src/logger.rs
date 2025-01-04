@@ -1,13 +1,11 @@
-use std::fmt::Display;
-use std::sync::Arc;
-
+use crate::config::Config;
 use chrono::Local;
 use log::Log;
-use tokio::fs::{File, OpenOptions};
-use tokio::io::{AsyncWriteExt, BufWriter};
-use tokio::sync::Mutex;
-
-use crate::config::Config;
+use std::fmt::Display;
+use std::fs::{File, OpenOptions};
+use std::io::prelude::*;
+use std::io::BufWriter;
+use std::sync::{Arc, Mutex};
 
 pub struct Logger {
     config: Config,
@@ -18,13 +16,12 @@ pub struct Logger {
 impl Logger {
     /// Create a new logger that can be independently used.
     ///
-    pub async fn new(config: Config) -> Logger {
+    pub fn new(config: Config) -> Logger {
         let error_file = Arc::new(Mutex::new(BufWriter::new(
             OpenOptions::new()
                 .create(true)
                 .append(true)
                 .open(&config.error_file)
-                .await
                 .expect("Failed to open error log file"),
         )));
 
@@ -33,7 +30,6 @@ impl Logger {
                 .create(true)
                 .append(true)
                 .open(&config.log_file)
-                .await
                 .expect("Failed to open log log file"),
         )));
 
@@ -44,43 +40,52 @@ impl Logger {
         };
     }
 
-    pub async fn log_error(&self, message: &str, line: u32) {
+    pub fn log_error(&self, message: &str, file: &str, line: u32) {
         let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
-        let log_message = format!(
-            "{} [ERROR] {}:{} - {}\n",
-            timestamp, self.config.error_file, line, message
-        );
+        let log_message = format!("{} [ERROR] {}:{} - {}\n", timestamp, file, line, message);
 
-        let mut error_file = self.error_file.lock().await;
-        match error_file.write_all(log_message.as_bytes()).await {
+        let mut error_file = self.error_file.lock().unwrap();
+
+        match error_file.write_all(log_message.as_bytes()) {
             Ok(_) => (),
             Err(e) => eprintln!("Error writing to error log: {:?}", e),
         };
 
-        match error_file.flush().await {
+        match error_file.flush() {
             Ok(_) => (),
             Err(e) => eprintln!("Error writing to error log: {:?}", e),
         };
     }
 
-    pub async fn log_info(&self, message: &str, line: u32) {
+    pub fn log_info(&self, message: &str, file: &str, line: u32) {
         let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
-        let log_message = format!(
-            "{} [INFO] {}:{} - {}\n",
-            timestamp, self.config.log_file, line, message
-        );
+        let log_message = format!("{} [INFO] {}:{} - {}\n", timestamp, file, line, message);
 
-        let mut log_file = self.log_file.lock().await;
-        match log_file.write_all(log_message.as_bytes()).await {
+        let mut log_file = self.log_file.lock().unwrap();
+        match log_file.write_all(log_message.as_bytes()) {
             Ok(_) => (),
             Err(e) => eprintln!("Error writing to info log: {:?}", e),
         };
 
-        match log_file.flush().await {
+        match log_file.flush() {
             Ok(_) => (),
             Err(e) => eprintln!("Error writing to info log: {:?}", e),
         };
     }
+}
+
+#[macro_export]
+macro_rules! error {
+    ($logger:expr, $msg:expr) => {
+        $logger.log_error($msg, file!(), line!());
+    };
+}
+
+#[macro_export]
+macro_rules! info {
+    ($logger:expr, $msg:expr) => {
+        $logger.log_info($msg, file!(), line!());
+    };
 }
 
 #[derive(Debug, PartialEq, Eq)]
