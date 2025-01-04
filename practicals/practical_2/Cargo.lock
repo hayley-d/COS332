@@ -277,7 +277,9 @@ name = "practical_2"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "libc",
  "rand",
+ "socket2",
  "tokio",
 ]
 

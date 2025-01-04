@@ -1,13 +1,41 @@
 use std::collections::HashSet;
 
+use practical_2::connection::{
+    accept_connection, create_listener, create_raw_listener, create_socket, handle_connection, handle_telnet_connection
+};
 use practical_2::question::Question;
 use rand::Rng;
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
+use tokio::net::TcpListener;
 
 #[tokio::main]
-async fn main() {
-    println!("Hello");
-    let _ = game().await;
+unsafe async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let port: u16 = match std::env::args().collect::<Vec<String>>().get(1) {
+        Some(p) => match p.parse::<u16>() {
+            Ok(n) => n,
+            Err(_) => {
+                eprintln!("Error: No port provided in command line arguments");
+                std::process::exit(1);
+            }
+        },
+        None => {
+            eprintln!("Error: No port provided in command line arguments");
+            std::process::exit(1);
+        }
+    };
+
+    unsafe {
+        let listener = create_raw_listener(port)?;
+        println!("Server running on port {}",port);
+
+        loop {
+            let client_fd = accept_connection(listener)?;
+
+                handle_telnet_connection(client_fd)?;    
+        }
+    }
+
+    Ok(())
 }
 
 async fn game() -> () {
