@@ -65,7 +65,7 @@ pub fn handle_telnet_connection(
 ) -> Result<(), Box<dyn Error>> {
     unsafe {
         let mut buffer: [u8; 1024] = [0; 1024];
-        let welcome_msg: &str = "Welcome to the Telnet server!";
+        let welcome_msg: &str = "Welcome to the Telnet server!\n";
 
         // write the welcome message to the client
         write(

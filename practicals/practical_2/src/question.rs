@@ -34,22 +34,25 @@ impl Question {
     pub fn check_answer(&self, answers: Vec<usize>) -> String {
         let mut output: String = String::new();
         if answers != self.answers {
-            output
-                .push_str(format!("\x1b[1;31mIncorrect\x1b[0m the question answers are:").as_str());
+            output.push_str(
+                format!("\x1b[1;31mIncorrect\x1b[0m the question answers are:\n").as_str(),
+            );
 
             if self.answers.is_empty() {
-                output.push_str(format!("\x1b[1;31mNo correct answers\x1b[0m").as_str());
+                output.push_str(format!("\x1b[1;31mNo correct answers\x1b[0m\n").as_str());
             } else {
                 for i in &self.answers {
                     if answers.contains(&i) {
-                        output.push_str(format!("\x1b[1;32m{}\x1b[0m", self.options[*i]).as_str());
+                        output
+                            .push_str(format!("\x1b[1;32m{}\x1b[0m\n", self.options[*i]).as_str());
                     } else {
-                        output.push_str(format!("\x1b[1;31m{}\x1b[0m", self.options[*i]).as_str());
+                        output
+                            .push_str(format!("\x1b[1;31m{}\x1b[0m\n", self.options[*i]).as_str());
                     }
                 }
             }
         } else {
-            output.push_str(format!("\x1b[1;32mCorrect!\x1b[0m").as_str());
+            output.push_str(format!("\x1b[1;32mCorrect!\x1b[0m\n").as_str());
         }
         return output;
     }
