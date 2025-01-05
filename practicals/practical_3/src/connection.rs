@@ -1,4 +1,5 @@
 use libc::*;
+use log::error;
 use std::error::Error;
 use std::net::TcpListener as StdTcpListener;
 use std::os::unix::io::FromRawFd;
@@ -17,7 +18,7 @@ pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
         let socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 
         if socket_fd < 0 {
-            eprintln!("Failed to create socket");
+            error!("Failed to create socket");
             std::process::exit(1);
         }
 
@@ -31,7 +32,7 @@ pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
             std::mem::size_of_val(&option_val) as u32,
         ) < 0
         {
-            eprintln!("Failed to set socket options");
+            error!("Failed to set socket options");
             std::process::exit(1);
         }
 
@@ -49,13 +50,13 @@ pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
             std::mem::size_of::<sockaddr_in>() as u32,
         ) < 0
         {
-            eprintln!("Failed to bind socket to address");
+            error!("Failed to bind socket to address");
             std::process::exit(1);
         }
 
         // Start listening at address
         if listen(socket_fd, 128) < 0 {
-            eprintln!("Failed to listen on socket");
+            error!("Failed to listen on socket");
             std::process::exit(1);
         }
 
