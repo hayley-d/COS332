@@ -2,12 +2,9 @@ use libc::*;
 use practical_2::connection::{create_raw_socket, handle_telnet_connection};
 use practical_2::question::Question;
 use std::sync::Arc;
+use tokio::sync::Semaphore;
 
 use std::error::Error;
-
-/// Ask for username and password to use telnet services,
-/// make sure no dangerous commands are contained such as rm -rf, rm
-///
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -28,12 +25,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let questions: Arc<Vec<Question>> = Arc::new(Question::parse_file().await);
     let server_fd = create_raw_socket(port).unwrap();
 
+    // Limit the amout of async connections to 5
+    let semaphore = Arc::new(Semaphore::new(5));
+
     loop {
+        let client_fd;
+        let permit = semaphore.acquire().await.unwrap();
+        println!(
+            "Current concurrent connections: {}",
+            semaphore.available_permits() - 5
+        );
+
         unsafe {
             let mut client_address: sockaddr_in = std::mem::zeroed::<sockaddr_in>();
             let mut address_len: u32 = std::mem::size_of::<sockaddr_in>() as u32;
 
-            let client_fd = accept(
+            client_fd = accept(
                 server_fd,
                 &mut client_address as *mut sockaddr_in as *mut sockaddr,
                 &mut address_len,
@@ -43,11 +50,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 eprintln!("Failed to accept connection");
                 continue;
             }
-
-            let question_clone: Arc<Vec<Question>> = Arc::clone(&questions);
-            std::thread::spawn(move || {
-                let _ = handle_telnet_connection(client_fd, question_clone);
-            });
         }
+        let question_clone: Arc<Vec<Question>> = Arc::clone(&questions);
+        tokio::spawn(async move {
+            let _ = handle_telnet_connection(client_fd, question_clone);
+        });
+        drop(permit);
+        println!("Connection dropped");
     }
 }

@@ -8,7 +8,10 @@ use crate::question::Question;
 
 pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
     unsafe {
-        // Create socket
+        // Create a socket
+        // AF_INET specifies the IPv4 address fam
+        // SOCK_STREAM indicates that the socket will use TCP
+        // 0 is default for TCP
         let socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 
         if socket_fd < 0 {
