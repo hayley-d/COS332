@@ -1,21 +1,26 @@
 use std::collections::HashSet;
 
-use practical_2::connection::{
-    accept_connection, create_raw_listener,  handle_telnet_connection
-};
+use libc::*;
+use practical_2::connection::{accept_connection, create_raw_listener, handle_telnet_connection};
 use practical_2::question::Question;
 use rand::Rng;
+use std::collections::HashSet;
+use std::ffi::CString;
+use std::io::{self, Write};
+use std::net::{IpAddr, Ipv4Addr, SocketAddrV4};
+use std::ptr;
+use std::str;
+use std::sync::Arc;
 use tokio::io::{self, AsyncBufReadExt};
-use tokio::net::TcpListener;
+
 use std::error::Error;
 
 /// Ask for username and password to use telnet services,
-/// make sure no dangerous commands are contained such as rm -rf, rm 
+/// make sure no dangerous commands are contained such as rm -rf, rm
 ///
 
 #[tokio::main]
-unsafe async fn main() -> Result<(), Box<dyn impl Error>> {
-
+async fn main() -> Result<(), Box<dyn Error>> {
     let port: u16 = match std::env::args().collect::<Vec<String>>().get(1) {
         Some(p) => match p.parse::<u16>() {
             Ok(n) => n,
@@ -30,23 +35,34 @@ unsafe async fn main() -> Result<(), Box<dyn impl Error>> {
         }
     };
 
-    unsafe {
-        let listener = create_raw_listener(port)?;
-        println!("Server running on port {}",port);
+    let questions: Arc<Vec<Question>> = Arc::new(Question::parse_file().await);
+    let server_fd = create_raw_socket(port);
 
-        loop {
-            let client_fd = accept_connection(listener)?;
+    loop {
+        unsafe {
+            let mut client_address: sockaddr_in = std::mem::zeroed::<sockaddr_in>();
+            let mut address_len: u32 = std::mem::size_of::<sockaddr_in>() as u32;
 
-                handle_telnet_connection(client_fd)?;    
+            let client_fd = accept(
+                server_fd,
+                &mut client_address as *mut sockaddr_in as *mut sockaddr,
+                &mut address_len,
+            );
+
+            if client_fd < 0 {
+                eprintln!("Failed to accept connection");
+                continue;
+            }
+
+            let question_clone: Arc<Vec<Question>> = Arc::clone(&questions);
+            std::thread::spawn(move || {
+                handle_telnet_connection(client_fd, question_clone);
+            });
         }
     }
-
-    Ok(())
 }
 
 async fn game() -> () {
-    let questions: Vec<Question> = Question::parse_file().await;
-
     loop {
         println!("Do you want a question? (y/n): ");
 
