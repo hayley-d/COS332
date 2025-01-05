@@ -595,6 +595,7 @@ dependencies = [
  "log",
  "log4rs",
  "rand",
+ "rustls",
  "socket2",
  "tokio",
  "tokio-rustls",

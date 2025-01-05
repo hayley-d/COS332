@@ -1,12 +1,14 @@
+use core::str;
 use libc::*;
-use log::error;
+use log::{error, info};
+use rustls::HandshakeType::{Certificate, PrivateKey};
 use std::error::Error;
 use std::net::TcpListener as StdTcpListener;
 use std::os::unix::io::FromRawFd;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
-use tokio_rustls::rustls::{self, Certificate, PrivateKey, ServerConfig};
+use tokio_rustls::rustls::ServerConfig;
 use tokio_rustls::TlsAcceptor;
 
 pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
@@ -60,12 +62,55 @@ pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
             std::process::exit(1);
         }
 
-        println!("Server is listening on port {}", port);
+        info!("Server started listening on port {}", port);
         return Ok(socket_fd);
     }
 }
 
 async fn start_server(port: u16) -> Result<(), Box<dyn Error>> {
     let raw_fd = create_raw_socket(port)?;
-    let std_listener = unsafe { StdTcpListener::from_raw_fd(raw_fd) };
+    let listener: StdTcpListener = unsafe { StdTcpListener::from_raw_fd(raw_fd) };
+    let listener: TcpListener = TcpListener::from_std(listener)?;
+    let tls_config = load_tls_config()?;
+    let acceptor = TlsAcceptor::from(Arc::new(tls_config));
+    info!("Server is ready to accept connections");
+    loop {
+        let (stream, address) = listener.accept().await?;
+        info!("New connection from {}", address);
+        let acceptor = acceptor.clone();
+
+        tokio::spawn(async move {
+            match acceptor.accept(stream).await {
+                Ok(mut tls_stream) => {
+                    info!("TLS hanshake for {} success", address);
+                    let mut buffer: Vec<u8> = vec![0; 1024];
+                    match tls_stream.read(&mut buffer).await {
+                        Ok(_) => {
+                            println!("Recieved:{}", str::from_utf8(&buffer[0..]).unwrap());
+                            tls_stream
+                                .write_all(b"HTTP/2 server response")
+                                .await
+                                .unwrap();
+                        }
+                        Err(_) => error!("Failed to read incoming stream"),
+                    }
+                }
+                Err(_) => {
+                    error!("TLS hanshake failed");
+                }
+            }
+        });
+    }
+}
+
+/// Load the TLS certificates and private key
+fn load_tls_config() -> Result<ServerConfig, Box<dyn Error>> {
+    let certs = Certificate(include_bytes!("../server.crt").to_vec());
+    let key = PrivateKey(include_bytes!("../server.key").to_vec());
+
+    let config = ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(certs, key)?;
+
+    return Ok(config);
 }
