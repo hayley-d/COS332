@@ -1,64 +1,60 @@
-use std::net::{Ipv4Addr, SocketAddr};
+use libc::*;
+use std::error::Error;
+use std::ffi::CString;
 use std::os::fd::RawFd;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
 
-use libc::{
-    accept, bind, close, listen, read, setsockopt, sockaddr, sockaddr_in, socket, write, AF_INET,
-    SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR,
-};
-use socket2::{Domain, Socket, Type};
-use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
+pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
+    unsafe {
+        // Create socket
+        let socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 
-/// Create a TCP listener
-/*pub fn create_listener(address: &str) -> Result<Socket, Box<dyn std::error::Error>> {
-    let socket: Socket = Socket::new(Domain::IPV4, Type::STREAM, None)?;
-    socket.set_reuse_address(true)?;
-    socket.bind(&address.parse::<SocketAddr>()?.into())?;
-    socket.listen(128)?;
-    return Ok(socket);
-}*/
+        if socket_fd < 0 {
+            eprintln!("Failed to create socket");
+            std::process::exit(1);
+        }
 
-pub unsafe fn create_raw_listener(port: u16) -> Result<RawFd, Box<dyn std::error::Error>> {
-    let listener = unsafe { socket(AF_INET, SOCK_STREAM, 0) };
-    if listener < 0 {
-        return Err(Box::new(io::Error::last_os_error()));
+        // Set socket options
+        let option_val: i32 = 1;
+        if setsockopt(
+            socket_fd,
+            SOL_SOCKET,
+            SO_REUSEADDR,
+            &option_val as *const _ as *const c_void,
+            std::mem::size_of_val(&option_val) as u32,
+        ) < 0
+        {
+            eprintln!("Failed to set socket options");
+            std::process::exit(1);
+        }
+
+        // Bind socket to address
+        let address = sockaddr_in {
+            sin_family: AF_INET as u16,
+            sin_port: htons(port),
+            sin_addr: in_addr { s_addr: INADDR_ANY },
+            sin_zero: [0; 8],
+        };
+
+        if bind(
+            socket_fd,
+            &address as *const sockaddr_in as *const sockaddr,
+            std::mem::size_of::<sockaddr_in>() as u32,
+        ) < 0
+        {
+            eprintln!("Failed to bind socket to address");
+            std::process::exit(1);
+        }
+
+        // Start listening at address
+        if listen(socket_fd, 128) < 0 {
+            eprintln!("Failed to listen on socket");
+            std::process::exit(1);
+        }
+
+        return Ok(socket_fd);
     }
-
-    let reuse_address = 1;
-    if setsockopt(
-        listener,
-        SOL_SOCKET,
-        SO_REUSEADDR,
-        &reuse_address as *const _ as *const libc::c_void,
-        std::mem::size_of_val(&reuse_address) as u32,
-    ) < 0
-    {
-        return Err(Box::new(io::Error::last_os_error()));
-    }
-
-    let address = sockaddr_in {
-        sin_family: AF_INET as u16,
-        sin_port: u16::to_be(port),
-        sin_addr: libc::in_addr {
-            s_addr: u32::from(Ipv4Addr::new(0, 0, 0, 0)).to_be(),
-        },
-        sin_zero: [0; 8],
-    };
-
-    if bind(
-        listener,
-        &address as *const _ as *const sockaddr,
-        std::mem::size_of::<sockaddr_in>() as u32,
-    ) < 0
-    {
-        return Err(Box::new(io::Error::last_os_error()));
-    }
-
-    if listen(listener, 128) < 0 {
-        return Err(Box::new(io::Error::last_os_error()));
-    }
-
-    return Ok(listener);
 }
 
 // Handle a Telnet connection

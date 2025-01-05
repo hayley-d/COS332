@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use libc::*;
-use practical_2::connection::{accept_connection, create_raw_listener, handle_telnet_connection};
+use practical_2::connection::{accept_connection, create_raw_socket, handle_telnet_connection};
 use practical_2::question::Question;
 use rand::Rng;
 use std::collections::HashSet;
