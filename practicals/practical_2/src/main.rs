@@ -1,15 +1,21 @@
 use std::collections::HashSet;
 
 use practical_2::connection::{
-    accept_connection, create_listener, create_raw_listener, create_socket, handle_connection, handle_telnet_connection
+    accept_connection, create_raw_listener,  handle_telnet_connection
 };
 use practical_2::question::Question;
 use rand::Rng;
-use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
+use tokio::io::{self, AsyncBufReadExt};
 use tokio::net::TcpListener;
+use std::error::Error;
+
+/// Ask for username and password to use telnet services,
+/// make sure no dangerous commands are contained such as rm -rf, rm 
+///
 
 #[tokio::main]
-unsafe async fn main() -> Result<(), Box<dyn std::error::Error>> {
+unsafe async fn main() -> Result<(), Box<dyn impl Error>> {
+
     let port: u16 = match std::env::args().collect::<Vec<String>>().get(1) {
         Some(p) => match p.parse::<u16>() {
             Ok(n) => n,
@@ -43,7 +49,6 @@ async fn game() -> () {
 
     loop {
         println!("Do you want a question? (y/n): ");
-        //io::stdout().flush().await.unwrap();
 
         let mut stdin = io::BufReader::new(io::stdin());
         let mut input: String = String::new();
@@ -61,7 +66,6 @@ async fn game() -> () {
                 let random = rand::thread_rng().gen_range(0..questions.len());
                 println!("Enter the number of the correct answer (e.g. 1 or 1,2 or leave blank for none): ");
                 println!("{}", questions[random].print());
-                //io::stdout().flush().await.unwrap();
 
                 let mut answer_input: String = String::new();
                 match stdin.read_line(&mut answer_input).await {
