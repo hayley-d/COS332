@@ -1,9 +1,14 @@
+use core::str;
 use libc::*;
+use rand::Rng;
 use std::error::Error;
 use std::ffi::CString;
 use std::os::fd::RawFd;
+use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
+
+use crate::question::Question;
 
 pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
     unsafe {
@@ -57,168 +62,85 @@ pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
     }
 }
 
-// Handle a Telnet connection
-pub async fn handle_connection(socket: &mut TcpStream) {
-    let mut buffer = vec![0u8; 1024];
+pub fn handle_telnet_connection(
+    client_fd: i32,
+    questions: Arc<Vec<Question>>,
+) -> Result<(), Box<dyn Error>> {
+    unsafe {
+        let mut buffer: [u8; 1024] = [0; 1024];
+        let welcome_msg: &str = "Welcome to the Telnet server!\nDo you want a question? (y/n): ";
 
-    // Welcome message
-    let welcome_message = "Welcome to the Telnet server!\n";
-
-    if let Err(e) = socket.write_all(welcome_message.as_bytes()).await {
-        eprintln!("Error writing to socket: {}", e);
-        return;
-    }
-
-    loop {
-        match socket.read(&mut buffer).await {
-            Ok(0) => break,
-            Ok(n) => {
-                let message = String::from_utf8_lossy(&buffer[0..n]);
-
-                if message.contains("IAC") {}
-            }
-            Err(e) => {
-                eprintln!("Error reading from socket: {}", e);
-                break;
-            }
-        }
-    }
-}
-
-pub unsafe fn accept_connection(listener_fd: RawFd) -> io::Result<RawFd> {
-    let mut client_addr = sockaddr_in {
-        sin_family: AF_INET as u16,
-        sin_port: 0,
-        sin_addr: libc::in_addr { s_addr: 0 },
-        sin_zero: [0; 8],
-    };
-    let mut client_addr_len = std::mem::size_of::<sockaddr_in>() as u32;
-
-    let client_fd = accept(
-        listener_fd,
-        &mut client_addr as *mut _ as *mut libc::sockaddr,
-        &mut client_addr_len,
-    );
-    if client_fd < 0 {
-        return Err(io::Error::last_os_error());
-    }
-
-    println!("Client connected!");
-
-    Ok(client_fd)
-}
-
-pub unsafe fn handle_telnet_connection(client_fd: RawFd) -> io::Result<()> {
-    let mut buffer = [0u8; 1024];
-
-    // Send a welcome message
-    let welcome_message = "Welcome to the game! Let's start!\n";
-    write(
-        client_fd,
-        welcome_message.as_bytes().as_ptr() as *const libc::c_void,
-        welcome_message.len() as usize,
-    );
-
-    loop {
-        // Ask if they want to play
-        let question_prompt = "Do you want a question? (y/n): ";
+        // write the welcome message to the client
         write(
             client_fd,
-            question_prompt.as_ptr() as *const libc::c_void,
-            question_prompt.len() as usize,
+            welcome_msg.as_ptr() as *const c_void,
+            welcome_msg.len(),
         );
 
-        // Read response from client
-        let n = read(
-            client_fd,
-            buffer.as_mut_ptr() as *mut libc::c_void,
-            buffer.len() as usize,
-        );
-        if n <= 0 {
-            eprintln!("Error or client closed the connection.");
-            close(client_fd);
-            break;
-        }
-        let message = std::ffi::CStr::from_ptr(buffer.as_ptr() as *const libc::c_char);
-        let input = message.to_string_lossy().trim().to_lowercase();
-
-        match input.as_str() {
-            "y" => {
-                // For now, just simulate a question and answer check
-                let question = "What is 2 + 2?";
-                let options = "\n1. 3\n2. 4\n3. 5\n4. 6\n";
-                let correct_answer = "2"; // Correct answer is 4
-
-                // Send question and options
-                write(
-                    client_fd,
-                    question.as_bytes().as_ptr() as *const libc::c_void,
-                    question.len() as usize,
-                );
-                write(
-                    client_fd,
-                    options.as_bytes().as_ptr() as *const libc::c_void,
-                    options.len() as usize,
-                );
-
-                // Ask for the answer
-                let answer_prompt = "Enter your answer (e.g. 2 for answer 2): ";
-                write(
-                    client_fd,
-                    answer_prompt.as_ptr() as *const libc::c_void,
-                    answer_prompt.len() as usize,
-                );
-
-                // Read answer from client
-                let n = read(
-                    client_fd,
-                    buffer.as_mut_ptr() as *mut libc::c_void,
-                    buffer.len() as usize,
-                );
-                if n <= 0 {
-                    eprintln!("Error reading answer.");
-                    close(client_fd);
-                    break;
-                }
-                let message = std::ffi::CStr::from_ptr(buffer.as_ptr() as *const libc::c_char);
-                let answer = message.to_string_lossy().trim();
-
-                if answer == correct_answer {
-                    let correct_message = "Correct!\n";
-                    write(
-                        client_fd,
-                        correct_message.as_ptr() as *const libc::c_void,
-                        correct_message.len() as usize,
-                    );
-                } else {
-                    let incorrect_message = "Incorrect.\n";
-                    write(
-                        client_fd,
-                        incorrect_message.as_ptr() as *const libc::c_void,
-                        incorrect_message.len() as usize,
-                    );
-                }
-            }
-            "n" => {
-                let goodbye_message = "Goodbye!\n";
-                write(
-                    client_fd,
-                    goodbye_message.as_ptr() as *const libc::c_void,
-                    goodbye_message.len() as usize,
-                );
-                close(client_fd);
+        loop {
+            // Read the input from the client
+            let bytes_read = read(client_fd, buffer.as_mut_ptr() as *mut c_void, buffer.len());
+            if bytes_read <= 0 {
                 break;
             }
-            _ => {
-                let invalid_input_message = "Invalid input. Please enter 'y' or 'n'.\n";
-                write(
-                    client_fd,
-                    invalid_input_message.as_ptr() as *const libc::c_void,
-                    invalid_input_message.len() as usize,
-                );
+
+            let input: &str = str::from_utf8(&buffer[0..bytes_read as usize])
+                .unwrap_or_default()
+                .trim();
+
+            match input {
+                "y" => {
+                    let random: usize = rand::thread_rng().gen_range(0..questions.len());
+                    let question: &Question = &questions[random];
+                    let question_txt: String = format!(
+                        "{}\nEnter the correct answer(s) (e.g., 1 or 1,2 or leave blank): ",
+                        question.print()
+                    );
+
+                    write(
+                        client_fd,
+                        question_txt.as_ptr() as *const c_void,
+                        question_txt.len(),
+                    );
+
+                    let bytes_read: usize =
+                        read(client_fd, buffer.as_mut_ptr() as *mut c_void, buffer.len()) as usize;
+
+                    if bytes_read <= 0 {
+                        break;
+                    }
+
+                    let answer_input: &str = str::from_utf8(&buffer[0..bytes_read])
+                        .unwrap_or_default()
+                        .trim();
+
+                    let answers: Vec<usize> = answer_input
+                        .split(',')
+                        .filter_map(|s| s.parse::<usize>().ok().map(|n| n - 1))
+                        .collect();
+
+                    question.check_answer(answers);
+                }
+                "n" => {
+                    let goodbye_msg: &str = "Goodbye!\n";
+                    write(
+                        client_fd,
+                        goodbye_msg.as_ptr() as *const c_void,
+                        goodbye_msg.len(),
+                    );
+                    break;
+                }
+                _ => {
+                    let error_msg: &str = "Invalid input. Please enter 'y' or 'n'.\n";
+                    write(
+                        client_fd,
+                        error_msg.as_ptr() as *const c_void,
+                        error_msg.len(),
+                    );
+                }
             }
         }
+        close(client_fd);
     }
-
-    Ok(())
+    return Ok(());
 }
