@@ -1,17 +1,7 @@
-use std::collections::HashSet;
-
 use libc::*;
-use practical_2::connection::{accept_connection, create_raw_socket, handle_telnet_connection};
+use practical_2::connection::{create_raw_socket, handle_telnet_connection};
 use practical_2::question::Question;
-use rand::Rng;
-use std::collections::HashSet;
-use std::ffi::CString;
-use std::io::{self, Write};
-use std::net::{IpAddr, Ipv4Addr, SocketAddrV4};
-use std::ptr;
-use std::str;
 use std::sync::Arc;
-use tokio::io::{self, AsyncBufReadExt};
 
 use std::error::Error;
 
@@ -36,7 +26,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let questions: Arc<Vec<Question>> = Arc::new(Question::parse_file().await);
-    let server_fd = create_raw_socket(port);
+    let server_fd = create_raw_socket(port).unwrap();
 
     loop {
         unsafe {
@@ -56,58 +46,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             let question_clone: Arc<Vec<Question>> = Arc::clone(&questions);
             std::thread::spawn(move || {
-                handle_telnet_connection(client_fd, question_clone);
+                let _ = handle_telnet_connection(client_fd, question_clone);
             });
-        }
-    }
-}
-
-async fn game() -> () {
-    loop {
-        println!("Do you want a question? (y/n): ");
-
-        let mut stdin = io::BufReader::new(io::stdin());
-        let mut input: String = String::new();
-
-        match stdin.read_line(&mut input).await {
-            Ok(_) => (),
-            Err(e) => {
-                eprintln!("Error: {:?}", e);
-                std::process::exit(1);
-            }
-        }
-
-        match input.as_str().trim() {
-            "y" => {
-                let random = rand::thread_rng().gen_range(0..questions.len());
-                println!("Enter the number of the correct answer (e.g. 1 or 1,2 or leave blank for none): ");
-                println!("{}", questions[random].print());
-
-                let mut answer_input: String = String::new();
-                match stdin.read_line(&mut answer_input).await {
-                    Ok(_) => (),
-                    Err(e) => {
-                        eprintln!("Error: {:?}", e);
-                        std::process::exit(1);
-                    }
-                }
-
-                let answers: HashSet<usize> = answer_input
-                    .trim()
-                    .split(',')
-                    .filter_map(|s| s.parse::<usize>().ok().map(|n| n - 1))
-                    .collect();
-
-                questions[random].check_answer(answers.into_iter().collect());
-                continue;
-            }
-            "n" => {
-                break;
-            }
-            _ => {
-                eprintln!("Please only enter y or n");
-                continue;
-            }
         }
     }
 }

@@ -2,11 +2,7 @@ use core::str;
 use libc::*;
 use rand::Rng;
 use std::error::Error;
-use std::ffi::CString;
-use std::os::fd::RawFd;
 use std::sync::Arc;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
 
 use crate::question::Question;
 
@@ -119,7 +115,9 @@ pub fn handle_telnet_connection(
                         .filter_map(|s| s.parse::<usize>().ok().map(|n| n - 1))
                         .collect();
 
-                    question.check_answer(answers);
+                    let answers = question.check_answer(answers);
+
+                    write(client_fd, answers.as_ptr() as *const c_void, answers.len());
                 }
                 "n" => {
                     let goodbye_msg: &str = "Goodbye!\n";

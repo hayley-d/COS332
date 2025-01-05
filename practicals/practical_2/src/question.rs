@@ -31,24 +31,27 @@ impl Question {
         return output;
     }
 
-    pub fn check_answer(&self, answers: Vec<usize>) {
+    pub fn check_answer(&self, answers: Vec<usize>) -> String {
+        let mut output: String = String::new();
         if answers != self.answers {
-            println!("\x1b[1;31mIncorrect\x1b[0m the question answers are:");
+            output
+                .push_str(format!("\x1b[1;31mIncorrect\x1b[0m the question answers are:").as_str());
 
             if self.answers.is_empty() {
-                println!("\x1b[1;31mNo correct answers\x1b[0m");
+                output.push_str(format!("\x1b[1;31mNo correct answers\x1b[0m").as_str());
             } else {
                 for i in &self.answers {
                     if answers.contains(&i) {
-                        println!("\x1b[1;32m{}\x1b[0m", self.options[*i]);
+                        output.push_str(format!("\x1b[1;32m{}\x1b[0m", self.options[*i]).as_str());
                     } else {
-                        println!("\x1b[1;31m{}\x1b[0m", self.options[*i]);
+                        output.push_str(format!("\x1b[1;31m{}\x1b[0m", self.options[*i]).as_str());
                     }
                 }
             }
         } else {
-            println!("\x1b[1;32mCorrect!\x1b[0m");
+            output.push_str(format!("\x1b[1;32mCorrect!\x1b[0m").as_str());
         }
+        return output;
     }
 
     pub async fn parse_file() -> Vec<Question> {
