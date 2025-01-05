@@ -54,6 +54,7 @@ pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
             std::process::exit(1);
         }
 
+        println!("Server is listening on port {}", port);
         return Ok(socket_fd);
     }
 }
@@ -64,7 +65,7 @@ pub fn handle_telnet_connection(
 ) -> Result<(), Box<dyn Error>> {
     unsafe {
         let mut buffer: [u8; 1024] = [0; 1024];
-        let welcome_msg: &str = "Welcome to the Telnet server!\nDo you want a question? (y/n): ";
+        let welcome_msg: &str = "Welcome to the Telnet server!";
 
         // write the welcome message to the client
         write(
@@ -74,6 +75,12 @@ pub fn handle_telnet_connection(
         );
 
         loop {
+            let welcome_msg: &str = "Do you want a question? (y/n): ";
+            write(
+                client_fd,
+                welcome_msg.as_ptr() as *const c_void,
+                welcome_msg.len(),
+            );
             // Read the input from the client
             let bytes_read = read(client_fd, buffer.as_mut_ptr() as *mut c_void, buffer.len());
             if bytes_read <= 0 {
