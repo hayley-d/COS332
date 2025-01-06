@@ -1,10 +1,12 @@
 use core::str;
 use libc::*;
 use log::{error, info};
-use rustls::HandshakeType::{Certificate, PrivateKey};
+use rustls::pki_types::pem::PemObject;
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use std::error::Error;
 use std::net::TcpListener as StdTcpListener;
 use std::os::unix::io::FromRawFd;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -71,9 +73,11 @@ async fn start_server(port: u16) -> Result<(), Box<dyn Error>> {
     let raw_fd = create_raw_socket(port)?;
     let listener: StdTcpListener = unsafe { StdTcpListener::from_raw_fd(raw_fd) };
     let listener: TcpListener = TcpListener::from_std(listener)?;
-    let tls_config = load_tls_config()?;
+    let tls_config = load_tls_config().await?;
     let acceptor = TlsAcceptor::from(Arc::new(tls_config));
+
     info!("Server is ready to accept connections");
+
     loop {
         let (stream, address) = listener.accept().await?;
         info!("New connection from {}", address);
@@ -104,9 +108,12 @@ async fn start_server(port: u16) -> Result<(), Box<dyn Error>> {
 }
 
 /// Load the TLS certificates and private key
-fn load_tls_config() -> Result<ServerConfig, Box<dyn Error>> {
-    let certs = Certificate(include_bytes!("../server.crt").to_vec());
-    let key = PrivateKey(include_bytes!("../server.key").to_vec());
+async fn load_tls_config() -> Result<ServerConfig, Box<dyn Error>> {
+    let cert_path: PathBuf = PathBuf::from("../server.crt");
+    let key_path: PathBuf = PathBuf::from("../key.key");
+
+    let certs = CertificateDer::pem_file_iter(&cert_path)?.collect::<Result<Vec<_>, _>>()?;
+    let key = PrivateKeyDer::from_pem_file(&key_path)?;
 
     let config = ServerConfig::builder()
         .with_no_client_auth()
