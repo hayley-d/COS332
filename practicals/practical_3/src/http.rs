@@ -1,5 +1,22 @@
 use std::error::Error;
 
+pub async fn validate_preface(
+    mut stream: TlsStream<TcpStream>,
+) -> Result<TlsStream<TcpStream>, Box<dyn Error>> {
+    const MAGIC: &[u8] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
+
+    let mut buffer: [u8; 24] = [0; 24];
+
+    stream.read_exact(&mut buffer).await?;
+    if buffer != MAGIC {
+        error!("Invalid HTTP/2 preface");
+        return Err(Box::new(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Invalid HTTP/2 preface",
+        )));
+    }
+    return Ok(stream);
+}
 #[repr(u8)]
 #[derive(Debug, PartialEq, Eq)]
 enum FrameType {
@@ -35,6 +52,12 @@ impl FrameType {
 }
 
 use std::convert::TryFrom;
+use std::io;
+
+use log::error;
+use tokio::io::AsyncReadExt;
+use tokio::net::TcpStream;
+use tokio_rustls::TlsStream;
 
 impl TryFrom<u8> for FrameType {
     type Error = String;

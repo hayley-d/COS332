@@ -9,11 +9,14 @@ use std::os::unix::io::FromRawFd;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpListener;
+use tokio::net::unix::SocketAddr;
+use tokio::net::{TcpListener, TcpStream};
 use tokio::signal;
 use tokio::sync::{Notify, Semaphore};
 use tokio_rustls::rustls::ServerConfig;
-use tokio_rustls::TlsAcceptor;
+use tokio_rustls::{TlsAcceptor, TlsStream};
+
+use crate::http::validate_preface;
 
 pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
     unsafe {
@@ -109,10 +112,9 @@ pub async fn start_server(port: u16) -> Result<(), Box<dyn Error>> {
                         tokio::spawn(async move {
                             if let Ok(mut tls_stream) = acceptor.accept(stream).await {
                                 info!("TLS handshake successful with {}",address);
-                                let mut buffer : Vec<u8> = vec![0;1024];
-                                if let Ok(_) = tls_stream.read(&mut buffer).await {
-                                    println!("Received: {}", str::from_utf8(&buffer).unwrap());
-                                    tls_stream.write_all(b"HTTP/2 Server Response").await.unwrap();
+
+                                if let Err(e) = handle_connection(tls_stream,address.to_string()).await {
+                                    error!("Connection error");
                                 }
                             }
 
@@ -128,14 +130,16 @@ pub async fn start_server(port: u16) -> Result<(), Box<dyn Error>> {
             }
             _ = shutdown.notified() => {
                 info!("Server shutdown initiated");
+                println!("Received Ctrl+C, shutting down...");
                 break;
             }
         }
     }
 
     info!("Waiting for active tasks to complete");
-    while active_tasks.available_permits() != 10 {
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    while active_tasks.available_permits() != 5 {
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        std::process::exit(1);
     }
     return Ok(());
 }
@@ -154,4 +158,13 @@ async fn load_tls_config() -> Result<ServerConfig, Box<dyn Error>> {
         .with_single_cert(certs, key)?;
 
     return Ok(config);
+}
+
+async fn handle_connection(
+    stream: TlsStream<TcpStream>,
+    address: String,
+) -> Result<(), Box<dyn Error>> {
+    let stream = validate_preface(stream).await?;
+    info!("Valid HTTP/2 preface received from {}", address);
+    todo!();
 }
