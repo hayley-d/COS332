@@ -57,7 +57,7 @@ use std::io;
 use log::error;
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
-use tokio_rustls::TlsStream;
+use tokio_rustls::server::TlsStream;
 
 impl TryFrom<u8> for FrameType {
     type Error = String;

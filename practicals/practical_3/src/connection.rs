@@ -1,4 +1,3 @@
-use core::str;
 use libc::*;
 use log::{error, info};
 use rustls::pki_types::pem::PemObject;
@@ -9,12 +8,12 @@ use std::os::unix::io::FromRawFd;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::unix::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::signal;
 use tokio::sync::{Notify, Semaphore};
 use tokio_rustls::rustls::ServerConfig;
-use tokio_rustls::{TlsAcceptor, TlsStream};
+use tokio_rustls::server::TlsStream;
+use tokio_rustls::TlsAcceptor;
 
 use crate::http::validate_preface;
 
@@ -110,10 +109,10 @@ pub async fn start_server(port: u16) -> Result<(), Box<dyn Error>> {
                         let permit = active_tasks.clone().acquire_owned().await.unwrap();
 
                         tokio::spawn(async move {
-                            if let Ok(mut tls_stream) = acceptor.accept(stream).await {
+                            if let Ok(tls_stream) = acceptor.accept(stream).await {
                                 info!("TLS handshake successful with {}",address);
 
-                                if let Err(e) = handle_connection(tls_stream,address.to_string()).await {
+                                if let Err(_) = handle_connection(tls_stream,address.to_string()).await {
                                     error!("Connection error");
                                 }
                             }
@@ -166,5 +165,5 @@ async fn handle_connection(
 ) -> Result<(), Box<dyn Error>> {
     let stream = validate_preface(stream).await?;
     info!("Valid HTTP/2 preface received from {}", address);
-    todo!();
+    return Ok(());
 }
