@@ -74,14 +74,14 @@ impl Frame {
         let length = u32::from_be_bytes([0, data[0], data[1], data[2]]);
         let frame_type = FrameType::from_u8(data[3])?;
         let flags = data[4];
-        let stream_id = u32::from_be_bytes([data[5], data[6], data[7], data[8]] & 0x7FFFFFFF); // Mask reserved bit
+        //let stream_id = u32::from_be_bytes([data[5], data[6], data[7], data[8]] & 0x7FFFFFFF); // Mask reserved bit
         let payload = data[9..].to_vec();
 
         Ok(Self {
             length,
             frame_type,
             flags,
-            stream_id,
+            stream_id: 0,
             payload,
         })
     }

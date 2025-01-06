@@ -10,6 +10,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
+use tokio::signal;
+use tokio::sync::{Notify, Semaphore};
 use tokio_rustls::rustls::ServerConfig;
 use tokio_rustls::TlsAcceptor;
 
@@ -69,51 +71,83 @@ pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
     }
 }
 
-async fn start_server(port: u16) -> Result<(), Box<dyn Error>> {
+pub async fn start_server(port: u16) -> Result<(), Box<dyn Error>> {
     let raw_fd = create_raw_socket(port)?;
     let listener: StdTcpListener = unsafe { StdTcpListener::from_raw_fd(raw_fd) };
     let listener: TcpListener = TcpListener::from_std(listener)?;
     let tls_config = load_tls_config().await?;
+
     let acceptor = TlsAcceptor::from(Arc::new(tls_config));
 
     info!("Server is ready to accept connections");
 
-    loop {
-        let (stream, address) = listener.accept().await?;
-        info!("New connection from {}", address);
-        let acceptor = acceptor.clone();
+    let shutdown: Arc<Notify> = Arc::new(Notify::new());
+    let active_tasks: Arc<Semaphore> = Arc::new(Semaphore::new(10));
 
-        tokio::spawn(async move {
-            match acceptor.accept(stream).await {
-                Ok(mut tls_stream) => {
-                    info!("TLS hanshake for {} success", address);
-                    let mut buffer: Vec<u8> = vec![0; 1024];
-                    match tls_stream.read(&mut buffer).await {
-                        Ok(_) => {
-                            println!("Recieved:{}", str::from_utf8(&buffer[0..]).unwrap());
-                            tls_stream
-                                .write_all(b"HTTP/2 server response")
-                                .await
-                                .unwrap();
-                        }
-                        Err(_) => error!("Failed to read incoming stream"),
-                    }
-                }
-                Err(_) => {
-                    error!("TLS hanshake failed");
+    let shutdown_signal = shutdown.clone();
+    tokio::spawn(async move {
+        if let Err(_) = signal::ctrl_c().await {
+            error!("Failed to listen for shutdown signal");
+        }
+
+        info!("Server shutdown signal reveived");
+        shutdown_signal.notify_one();
+    });
+
+    loop {
+        tokio::select! {
+            result = listener.accept() => {
+                match result {
+                    Ok((stream,address)) => {
+                        info!("New connection from {}",address);
+                        let acceptor = acceptor.clone();
+                        let active_tasks = active_tasks.clone();
+                        let shutdown_signal = shutdown.clone();
+
+                        let permit = active_tasks.clone().acquire_owned().await.unwrap();
+
+                        tokio::spawn(async move {
+                            if let Ok(mut tls_stream) = acceptor.accept(stream).await {
+                                info!("TLS handshake successful with {}",address);
+                                let mut buffer : Vec<u8> = vec![0;1024];
+                                if let Ok(_) = tls_stream.read(&mut buffer).await {
+                                    println!("Received: {}", str::from_utf8(&buffer).unwrap());
+                                    tls_stream.write_all(b"HTTP/2 Server Response").await.unwrap();
+                                }
+                            }
+
+                            drop(permit);
+
+                            if active_tasks.available_permits() == 0 {
+                                shutdown_signal.notify_one();
+                            }
+                        });
+                    },
+                    Err(_) => error!("Failed to accept connection"),
                 }
             }
-        });
+            _ = shutdown.notified() => {
+                info!("Server shutdown initiated");
+                break;
+            }
+        }
     }
+
+    info!("Waiting for active tasks to complete");
+    while active_tasks.available_permits() != 10 {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    return Ok(());
 }
 
 /// Load the TLS certificates and private key
 async fn load_tls_config() -> Result<ServerConfig, Box<dyn Error>> {
-    let cert_path: PathBuf = PathBuf::from("../server.crt");
-    let key_path: PathBuf = PathBuf::from("../key.key");
+    let cert_path: PathBuf = PathBuf::from("server.crt");
+    let key_path: PathBuf = PathBuf::from("server.key");
 
-    let certs = CertificateDer::pem_file_iter(&cert_path)?.collect::<Result<Vec<_>, _>>()?;
-    let key = PrivateKeyDer::from_pem_file(&key_path)?;
+    let certs =
+        vec![CertificateDer::from_pem_file(&cert_path).expect("Cannot open certificate file")];
+    let key = PrivateKeyDer::from_pem_file(&key_path).expect("Cannot open pk file");
 
     let config = ServerConfig::builder()
         .with_no_client_auth()
