@@ -103,6 +103,7 @@ pub mod connection {
             .with_no_client_auth()
             .with_single_cert(certs, key)?;
 
+        info!(target: "request_logger","TLS certificate and keys configured");
         return Ok(config);
     }
 
@@ -122,11 +123,14 @@ pub mod connection {
             }
 
             let request = String::from_utf8_lossy(&buffer[..bytes_read]);
-            println!("Received request from {}: {}", address, request);
+
+            println!(
+                "Request: method:{}, uri:{}, client IP:{}",
+                "GET", "/", address
+            );
 
             if request.contains("Connection: close") {
-                println!("Client requested connection close");
-                break;
+                return Ok(());
             }
 
             // Craft a simple HTTP response
@@ -134,7 +138,6 @@ pub mod connection {
             stream.write_all(response).await?;
             stream.flush().await?;
         }
-        return Ok(());
     }
 
     /// Converts a raw libc socket into a tokio TcpListener
@@ -149,8 +152,6 @@ pub mod connection {
 
         let tls_config = load_tls_config().await?;
         let acceptor = TlsAcceptor::from(Arc::new(tls_config));
-
-        println!("Server is listening on https//:127.0.0.1:{port}");
 
         let shutdown: Arc<Notify> = Arc::new(Notify::new());
         let is_shutting_down = Arc::new(AtomicBool::new(false));
@@ -178,15 +179,11 @@ pub mod connection {
             _ = run_server(listener,acceptor,connections.clone(),is_shutting_down.clone())=> {
             }
             _ = shutdown.notified() => {
-                    info!("Server shutdown signal recieved.");
-                    println!("Received Ctrl+C, shutting down...");
+                    info!(target: "request_logger","Server shutdown signal recieved.");
+                    println!("Server shutdown signal recieved.");
             }
         }
-
-        info!("Waiting for active tasks to complete");
         while connections.clone().available_permits() != 15 {}
-
-        info!("ALl tasks have completed. Server shutting down");
         return Ok(());
     }
 
@@ -210,29 +207,24 @@ pub mod connection {
             let (stream, address) = match result {
                 Ok(Ok((s, a))) => (s, a),
                 Ok(Err(_)) => {
-                    error!("Problem establishing connection");
                     drop(permit);
                     continue;
                 }
                 Err(_) => {
-                    error!("Problem establishing connection");
                     drop(permit);
                     continue;
                 }
             };
 
-            info!("New connection from {}", address);
             let acceptor = acceptor.clone();
 
             let handle = tokio::spawn(async move {
                 if let Ok(tls_stream) = acceptor.accept(stream).await {
-                    info!("TLS handshake successful with {}", address);
+                    info!(target: "request_logger","TLS handshake successful with {}", address);
 
-                    if let Err(_) = handle_connection(tls_stream, address.to_string()).await {
-                        error!("Connection error");
-                    }
+                    let _ = handle_connection(tls_stream, address.to_string()).await;
                 } else {
-                    eprintln!("TLS handshake failed with {}", address);
+                    error!(target: "error_logger","TLS handshake failed with {}", address);
                 }
 
                 drop(permit);
