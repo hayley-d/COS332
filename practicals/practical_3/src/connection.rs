@@ -1,169 +1,129 @@
-use libc::*;
-use log::{error, info};
-use rustls::pki_types::pem::PemObject;
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
-use std::error::Error;
-use std::net::TcpListener as StdTcpListener;
-use std::os::unix::io::FromRawFd;
-use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
-use tokio::signal;
-use tokio::sync::{Notify, Semaphore};
-use tokio_rustls::rustls::ServerConfig;
-use tokio_rustls::server::TlsStream;
-use tokio_rustls::TlsAcceptor;
+pub mod connections {
+    #![allow(dead_code, unused_variables)]
 
-use crate::http::validate_preface;
+    use std::net::SocketAddr;
+    use std::sync::Arc;
+    use std::thread;
+    use std::time::Duration;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::{TcpListener, TcpStream};
+    use tokio::sync::broadcast::Sender;
+    use tokio::sync::{broadcast, Mutex, Semaphore};
+    use tokio::{fs, time};
 
-pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
-    unsafe {
-        // Create a socket
-        // AF_INET specifies the IPv4 address fam
-        // SOCK_STREAM indicates that the socket will use TCP
-        // 0 is default for TCP
-        let socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    use crate::request_validation::handle_request;
+    use crate::shutdown::Message;
+    use crate::ErrorType;
 
-        if socket_fd < 0 {
-            error!("Failed to create socket");
-            std::process::exit(1);
-        }
+    const MAX_CONNECTIONS: usize = 5;
 
-        // Set socket options
-        let option_val: i32 = 1;
-        if setsockopt(
-            socket_fd,
-            SOL_SOCKET,
-            SO_REUSEADDR,
-            &option_val as *const _ as *const c_void,
-            std::mem::size_of_val(&option_val) as u32,
-        ) < 0
-        {
-            error!("Failed to set socket options");
-            std::process::exit(1);
-        }
-
-        // Bind socket to address
-        let address = sockaddr_in {
-            sin_family: AF_INET as u16,
-            sin_port: htons(port),
-            sin_addr: in_addr { s_addr: INADDR_ANY },
-            sin_zero: [0; 8],
-        };
-
-        if bind(
-            socket_fd,
-            &address as *const sockaddr_in as *const sockaddr,
-            std::mem::size_of::<sockaddr_in>() as u32,
-        ) < 0
-        {
-            error!("Failed to bind socket to address");
-            std::process::exit(1);
-        }
-
-        // Start listening at address
-        if listen(socket_fd, 128) < 0 {
-            error!("Failed to listen on socket");
-            std::process::exit(1);
-        }
-
-        info!("Server started listening on port {}", port);
-        return Ok(socket_fd);
+    #[derive(Debug)]
+    pub struct Listener {
+        pub listener: TcpListener,
+        pub connection_limit: Arc<Semaphore>,
+        pub shutdown_tx: Arc<Mutex<Sender<Message>>>,
     }
-}
 
-pub async fn start_server(port: u16) -> Result<(), Box<dyn Error>> {
-    let raw_fd = create_raw_socket(port)?;
-    let listener: StdTcpListener = unsafe { StdTcpListener::from_raw_fd(raw_fd) };
-    let listener: TcpListener = TcpListener::from_std(listener)?;
-    let tls_config = load_tls_config().await?;
+    #[derive(Debug)]
+    pub struct ConnectionHandler {
+        pub stream: TcpStream,
+        pub addr: SocketAddr,
+        pub shutdown_rx: broadcast::Receiver<Message>,
+    }
 
-    let acceptor = TlsAcceptor::from(Arc::new(tls_config));
+    pub async fn handle_connection(stream: &mut TcpStream) -> Result<(), ErrorType> {
+        loop {
+            let mut buffer = [0; 4096];
 
-    info!("Server is ready to accept connections");
-
-    let shutdown: Arc<Notify> = Arc::new(Notify::new());
-    let active_tasks: Arc<Semaphore> = Arc::new(Semaphore::new(10));
-
-    let shutdown_signal = shutdown.clone();
-    tokio::spawn(async move {
-        if let Err(_) = signal::ctrl_c().await {
-            error!("Failed to listen for shutdown signal");
-        }
-
-        info!("Server shutdown signal reveived");
-        shutdown_signal.notify_one();
-    });
-
-    loop {
-        tokio::select! {
-            result = listener.accept() => {
-                match result {
-                    Ok((stream,address)) => {
-                        info!("New connection from {}",address);
-                        let acceptor = acceptor.clone();
-                        let active_tasks = active_tasks.clone();
-                        let shutdown_signal = shutdown.clone();
-
-                        let permit = active_tasks.clone().acquire_owned().await.unwrap();
-
-                        tokio::spawn(async move {
-                            if let Ok(tls_stream) = acceptor.accept(stream).await {
-                                info!("TLS handshake successful with {}",address);
-
-                                if let Err(_) = handle_connection(tls_stream,address.to_string()).await {
-                                    error!("Connection error");
-                                }
-                            }
-
-                            drop(permit);
-
-                            if active_tasks.available_permits() == 0 {
-                                shutdown_signal.notify_one();
-                            }
-                        });
-                    },
-                    Err(_) => error!("Failed to accept connection"),
+            let bytes_read: usize = match stream.read(&mut buffer).await {
+                Ok(n) => {
+                    if n == 0 {
+                        return Ok(());
+                    } else {
+                        n
+                    }
                 }
-            }
-            _ = shutdown.notified() => {
-                info!("Server shutdown initiated");
-                println!("Received Ctrl+C, shutting down...");
-                break;
+                Err(e) => {
+                    let error: ErrorType =
+                        ErrorType::SocketError(String::from("Failed to read from socket"));
+                    return Err(error);
+                }
+            };
+
+            handle_request(&buffer[..bytes_read])?;
+
+            if buffer.starts_with(get_route("test")) {
+                format_response(
+                    "200 OK",
+                    fs::read_to_string("html/home.html").await.unwrap(),
+                    stream,
+                )
+                .await;
+            } else if buffer.starts_with(get_route("hayley")) {
+                thread::sleep(Duration::from_secs(5));
+                format_response(
+                    "200 OK",
+                    fs::read_to_string("html/index.html").await.unwrap(),
+                    stream,
+                )
+                .await;
+            } else {
+                format_response(
+                    "200 OK",
+                    fs::read_to_string("html/index.html").await.unwrap(),
+                    stream,
+                )
+                .await;
             }
         }
     }
 
-    info!("Waiting for active tasks to complete");
-    while active_tasks.available_permits() != 5 {
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        std::process::exit(1);
+    pub async fn format_response(status_code: &str, contents: String, stream: &mut TcpStream) {
+        let length: usize = contents.len();
+        let response =
+            format!("HTTP/1.1 {status_code}\r\nContent-Length: {length}\r\n\r\n{contents}");
+        stream.write_all(response.as_bytes()).await.unwrap();
     }
-    return Ok(());
-}
 
-/// Load the TLS certificates and private key
-async fn load_tls_config() -> Result<ServerConfig, Box<dyn Error>> {
-    let cert_path: PathBuf = PathBuf::from("server.crt");
-    let key_path: PathBuf = PathBuf::from("server.key");
+    pub fn get_route(route: &str) -> &'static [u8] {
+        return match route {
+            "Home" => b"GET / HTTP/1.1",
+            "hayley" => b"GET /hayley HTTP/1.1",
+            "test" => b"GET /home HTTP/1.1",
+            _ => b"GET / HTTP/1.1",
+        };
+    }
 
-    let certs =
-        vec![CertificateDer::from_pem_file(&cert_path).expect("Cannot open certificate file")];
-    let key = PrivateKeyDer::from_pem_file(&key_path).expect("Cannot open pk file");
+    pub fn validate_request(req: &[u8]) -> Result<(), ErrorType> {
+        return Ok(());
+    }
 
-    let config = ServerConfig::builder()
-        .with_no_client_auth()
-        .with_single_cert(certs, key)?;
+    impl Listener {
+        pub async fn accept(&mut self) -> Result<(TcpStream, SocketAddr), ErrorType> {
+            let mut backoff: usize = 200;
 
-    return Ok(config);
-}
+            loop {
+                // If socket it accepted then return the associated handler
+                match self.listener.accept().await {
+                    Ok((stream, addr)) => {
+                        println!("New connection from {}", addr);
+                        return Ok((stream, addr));
+                    }
+                    Err(_) => {
+                        // Attempt has failed too many times
+                        if backoff > 6000 {
+                            return Err(ErrorType::SocketError(String::from(
+                                "Error establishing connection",
+                            )));
+                        }
+                    }
+                }
 
-async fn handle_connection(
-    stream: TlsStream<TcpStream>,
-    address: String,
-) -> Result<(), Box<dyn Error>> {
-    let stream = validate_preface(stream).await?;
-    info!("Valid HTTP/2 preface received from {}", address);
-    return Ok(());
+                // Exponential backoff to reduce contention
+                println!("Backingoff...");
+                time::sleep(Duration::from_millis(backoff as u64)).await;
+                backoff *= 2;
+            }
+        }
+    }
 }

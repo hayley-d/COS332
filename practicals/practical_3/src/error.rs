@@ -1,123 +1,187 @@
-use std::fmt;
-use thiserror::Error;
+pub mod my_errors {
+    use std::fmt;
+    use std::io::Write;
+    use std::sync::Arc;
 
-/// HTTP/2 Error codes as defined in RFC 7540
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
-pub enum Http2ErrorCode {
-    NoError = 0x00,
-    ProtocolError = 0x01,
-    InternalError = 0x02,
-    FlowControlError = 0x03,
-    SettingsTimeout = 0x04,
-    StreamClosed = 0x05,
-    FrameSizeError = 0x06,
-    RefusedStream = 0x07,
-    Cancel = 0x08,
-    CompressionError = 0x09,
-    ConnectError = 0x0a,
-    EnhanceYourCalm = 0x0b,
-    InadequateSecurity = 0x0c,
-    Http11Required = 0x0d,
-}
-
-impl fmt::Display for Http2ErrorCode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let description = match self {
-            Http2ErrorCode::NoError => "No error",
-            Http2ErrorCode::ProtocolError => "Protocol error",
-            Http2ErrorCode::InternalError => "Internal error",
-            Http2ErrorCode::FlowControlError => "Flow control error",
-            Http2ErrorCode::SettingsTimeout => "Settings timeout",
-            Http2ErrorCode::StreamClosed => "Stream closed",
-            Http2ErrorCode::FrameSizeError => "Frame size error",
-            Http2ErrorCode::RefusedStream => "Refused stream",
-            Http2ErrorCode::Cancel => "Cancel",
-            Http2ErrorCode::CompressionError => "Compression error",
-            Http2ErrorCode::ConnectError => "Connect error",
-            Http2ErrorCode::EnhanceYourCalm => "Enhance your calm",
-            Http2ErrorCode::InadequateSecurity => "Inadequate security",
-            Http2ErrorCode::Http11Required => "HTTP/1.1 required",
-        };
-        write!(f, "{}", description)
+    pub enum ErrorType {
+        SocketError(String),
+        ReadError(String),
+        WriteError(String),
+        BadRequest(String),
+        NotFound(String),
+        InternalServerError(String),
+        ProtocolError(String),
+        ConnectionError(String),
     }
-}
 
-impl Http2ErrorCode {
-    /// Convert an integer to an `Http2ErrorCode`.
-    pub fn from_code(code: u8) -> Option<Self> {
-        match code {
-            0x0 => Some(Http2ErrorCode::NoError),
-            0x1 => Some(Http2ErrorCode::ProtocolError),
-            0x2 => Some(Http2ErrorCode::InternalError),
-            0x3 => Some(Http2ErrorCode::FlowControlError),
-            0x4 => Some(Http2ErrorCode::SettingsTimeout),
-            0x5 => Some(Http2ErrorCode::StreamClosed),
-            0x6 => Some(Http2ErrorCode::FrameSizeError),
-            0x7 => Some(Http2ErrorCode::RefusedStream),
-            0x8 => Some(Http2ErrorCode::Cancel),
-            0x9 => Some(Http2ErrorCode::CompressionError),
-            0xa => Some(Http2ErrorCode::ConnectError),
-            0xb => Some(Http2ErrorCode::EnhanceYourCalm),
-            0xc => Some(Http2ErrorCode::InadequateSecurity),
-            0xd => Some(Http2ErrorCode::Http11Required),
-            _ => None,
+    pub struct Logger {
+        log_file: Arc<std::sync::Mutex<std::fs::File>>,
+    }
+
+    impl ErrorType {
+        pub fn get_msg(&self) -> &str {
+            match self {
+                ErrorType::SocketError(msg) => msg,
+                ErrorType::ReadError(msg) => msg,
+                ErrorType::WriteError(msg) => msg,
+                ErrorType::BadRequest(msg) => msg,
+                ErrorType::NotFound(msg) => msg,
+                ErrorType::InternalServerError(msg) => msg,
+                ErrorType::ProtocolError(msg) => msg,
+                ErrorType::ConnectionError(msg) => msg,
+            }
         }
     }
 
-    /// Convert an `Http2ErrorCode` to its integer representation.
-    pub fn as_code(self) -> u8 {
-        match self {
-            Http2ErrorCode::NoError => 0x0,
-            Http2ErrorCode::ProtocolError => 0x1,
-            Http2ErrorCode::InternalError => 0x2,
-            Http2ErrorCode::FlowControlError => 0x3,
-            Http2ErrorCode::SettingsTimeout => 0x4,
-            Http2ErrorCode::StreamClosed => 0x5,
-            Http2ErrorCode::FrameSizeError => 0x6,
-            Http2ErrorCode::RefusedStream => 0x7,
-            Http2ErrorCode::Cancel => 0x8,
-            Http2ErrorCode::CompressionError => 0x9,
-            Http2ErrorCode::ConnectError => 0xa,
-            Http2ErrorCode::EnhanceYourCalm => 0xb,
-            Http2ErrorCode::InadequateSecurity => 0xc,
-            Http2ErrorCode::Http11Required => 0xd,
+    impl fmt::Display for ErrorType {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                ErrorType::SocketError(msg) => write!(f, "Error with socket: {}", msg),
+                ErrorType::ReadError(msg) => write!(f, "Error reading file: {}", msg),
+                ErrorType::WriteError(msg) => write!(f, "Error writing to file: {}", msg),
+                ErrorType::BadRequest(msg) => write!(f, "Error bad request: {}", msg),
+                ErrorType::NotFound(msg) => write!(f, "Error resource not found: {}", msg),
+                ErrorType::InternalServerError(msg) => write!(f, "Internal Server Error: {}", msg),
+                ErrorType::ProtocolError(msg) => write!(f, "Protocol Error: {}", msg),
+                ErrorType::ConnectionError(msg) => write!(f, "Connection Error: {}", msg),
+            }
         }
     }
-}
 
-#[derive(Error, Debug)]
-pub enum Http2Error {
-    #[error("HTTP/2 error: {0}")]
-    GeneralError(Http2ErrorCode),
+    impl fmt::Debug for ErrorType {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            match self {
+                ErrorType::SocketError(msg) => {
+                    write!(
+                        f,
+                        "Socket Error: {{ file: {}, line: {} message: {} }}",
+                        file!(),
+                        line!(),
+                        msg
+                    )
+                }
+                ErrorType::ReadError(msg) => {
+                    write!(
+                        f,
+                        "Read Error: {{ file: {}, line: {} message: {} }}",
+                        file!(),
+                        line!(),
+                        msg
+                    )
+                }
+                ErrorType::WriteError(msg) => {
+                    write!(
+                        f,
+                        "Write Error: {{ file: {}, line: {} message: {} }}",
+                        file!(),
+                        line!(),
+                        msg
+                    )
+                }
+                ErrorType::BadRequest(msg) => {
+                    write!(
+                        f,
+                        "Bad Request Error: {{ file: {}, line: {} message: {} }}",
+                        file!(),
+                        line!(),
+                        msg
+                    )
+                }
 
-    #[error("I/O error: {0}")]
-    IoError(#[from] std::io::Error),
-
-    #[error("Invalid frame: {0}")]
-    InvalidFrame(String),
-}
-
-/*impl fmt::Display for Http2Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Http2Error::GeneralError(s) => write!(f, "General error: {}", s),
-            Http2Error::IoError(s) => write!(f, "I/O error: {}", s),
-            Http2Error::InvalidFrame(s) => write!(f, "Invalid frame error: {}", s),
+                ErrorType::NotFound(msg) => {
+                    write!(
+                        f,
+                        "Resource Not Found Error: {{ file: {}, line: {} message: {} }}",
+                        file!(),
+                        line!(),
+                        msg
+                    )
+                }
+                ErrorType::InternalServerError(msg) => {
+                    write!(
+                        f,
+                        "Internal Server Error: {{ file: {}, line: {} message: {} }}",
+                        file!(),
+                        line!(),
+                        msg
+                    )
+                }
+                ErrorType::ProtocolError(msg) => {
+                    write!(
+                        f,
+                        "Protocol Error: {{ file: {}, line: {} message: {} }}",
+                        file!(),
+                        line!(),
+                        msg
+                    )
+                }
+                ErrorType::ConnectionError(msg) => write!(
+                    f,
+                    "Connection Error: {{ file: {}, line: {} message: {} }}",
+                    file!(),
+                    line!(),
+                    msg
+                ),
+            }
         }
     }
-}*/
 
-impl Http2Error {
-    /// Create a new HTTP/2 general error.
-    pub fn new_general_error(code: Http2ErrorCode) -> Self {
-        Http2Error::GeneralError(code)
+    impl Logger {
+        pub fn new(log_path: &str) -> Self {
+            let file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(log_path)
+                .expect("Failed to open log file");
+            return Logger {
+                log_file: Arc::new(std::sync::Mutex::new(file)),
+            };
+        }
+
+        pub fn log_error(&self, error: &ErrorType) {
+            let mut file = self.log_file.lock().unwrap();
+            let log_message = format!("[{}] {:?}\n", chrono::Utc::now(), error);
+            file.write_all(log_message.as_bytes())
+                .expect("Failed to write to log file");
+        }
     }
 
-    /// Convert an `Http2ErrorCode` to an `Http2Error`.
-    pub fn from_code(code: u8) -> Self {
-        match Http2ErrorCode::from_code(code) {
-            Some(error_code) => Http2Error::GeneralError(error_code),
-            None => Http2Error::InvalidFrame(format!("Unknown error code: {:#x}", code)),
+    impl PartialEq for ErrorType {
+        fn eq(&self, other: &Self) -> bool {
+            match self {
+                ErrorType::SocketError(_) => match other {
+                    ErrorType::SocketError(_) => true,
+                    _ => false,
+                },
+                ErrorType::ReadError(_) => match other {
+                    ErrorType::ReadError(_) => true,
+                    _ => false,
+                },
+                ErrorType::WriteError(_) => match other {
+                    ErrorType::WriteError(_) => true,
+                    _ => false,
+                },
+                ErrorType::BadRequest(_) => match other {
+                    ErrorType::BadRequest(_) => true,
+                    _ => false,
+                },
+                ErrorType::NotFound(_) => match other {
+                    ErrorType::NotFound(_) => true,
+                    _ => false,
+                },
+                ErrorType::InternalServerError(_) => match other {
+                    ErrorType::InternalServerError(_) => true,
+                    _ => false,
+                },
+                ErrorType::ProtocolError(_) => match other {
+                    ErrorType::InternalServerError(_) => true,
+                    _ => false,
+                },
+                ErrorType::ConnectionError(_) => match other {
+                    ErrorType::InternalServerError(_) => true,
+                    _ => false,
+                },
+            }
         }
     }
 }
