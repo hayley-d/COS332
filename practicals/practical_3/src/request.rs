@@ -3,7 +3,6 @@ use colored::Colorize;
 use core::str;
 use log::error;
 use std::fmt::Display;
-use std::net::IpAddr;
 
 #[derive(Debug)]
 pub struct Clock {
@@ -67,7 +66,7 @@ impl Display for ContentType {
 
 pub struct Request {
     pub request_id: i64,
-    pub client_ip: IpAddr,
+    pub client_ip: String,
     pub headers: Vec<String>,
     pub body: String,
     pub method: HttpMethod,
@@ -90,7 +89,7 @@ impl Request {
         println!("{}{}", self.method.to_string().magenta(), self.uri.cyan());
     }
 
-    pub fn new(buffer: &[u8], client_ip: IpAddr, request_id: i64) -> Result<Request, ErrorType> {
+    pub fn new(buffer: &[u8], client_ip: String, request_id: i64) -> Result<Request, ErrorType> {
         // unwrap is safe as request has been parsed for any issues before this is called
         let request = String::from_utf8(buffer.to_vec()).unwrap();
 

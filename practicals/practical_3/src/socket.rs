@@ -12,7 +12,7 @@ pub mod connection {
     use std::net::{IpAddr, TcpListener as StdTcpListener};
     use std::os::unix::io::FromRawFd;
     use std::path::PathBuf;
-    use std::str::FromStr;
+    use std::str::{from_utf8, FromStr};
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
     use std::time::Duration;
@@ -119,32 +119,44 @@ pub mod connection {
             let mut buffer = [0; 4096];
 
             // Read request from the client
-            let bytes_read = stream.read(&mut buffer).await?;
+            let bytes_read = timeout(Duration::from_millis(100), stream.read(&mut buffer)).await;
+
+            let bytes_read = match bytes_read {
+                Ok(b) => b?,
+                Err(_) => return Ok(()),
+            };
 
             if bytes_read == 0 {
                 println!("Client Disconnected");
                 return Ok(());
             }
 
-            let request: Request = Request::new(
+            let request: Request = match Request::new(
                 &buffer[..bytes_read],
-                IpAddr::from_str(address.as_str())?,
+                address.clone(),
                 clock.lock().await.increment_time(),
-            )?;
+            ) {
+                Ok(r) => r,
+                Err(_) => {
+                    println!("Unable to parse in request");
+                    std::process::exit(1);
+                }
+            };
 
             if request.headers.iter().any(|h| h == "Connection: close") {
+                println!("Connection closed");
+                let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nBye, World!";
+                stream.write_all(response).await?;
+                stream.flush().await?;
+
                 return Ok(());
             }
-
-            println!(
-                "Request: method:{}, uri:{}, client IP:{}",
-                request.method, request.uri, request.client_ip
-            );
 
             // Craft a simple HTTP response
             let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello, World!";
             stream.write_all(response).await?;
             stream.flush().await?;
+            return Ok(());
         }
     }
 
