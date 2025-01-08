@@ -12,13 +12,15 @@ pub mod connection {
     use std::net::TcpListener as StdTcpListener;
     use std::os::unix::io::FromRawFd;
     use std::path::PathBuf;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
+    use std::time::Duration;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
     use tokio::net::TcpStream;
-    use tokio::signal;
     use tokio::sync::{Notify, Semaphore};
-    use tokio::task::JoinSet;
+    use tokio::task::{JoinHandle, JoinSet};
+    use tokio::time::timeout;
     use tokio_rustls::server::TlsStream;
     use tokio_rustls::TlsAcceptor;
 
@@ -103,6 +105,7 @@ pub mod connection {
         let bytes_read = stream.read(&mut buffer).await?;
 
         if bytes_read == 0 {
+            println!("Client Disconnected");
             return Ok(());
         }
 
@@ -114,7 +117,6 @@ pub mod connection {
         stream.write_all(response).await?;
         stream.flush().await?;
 
-        println!("Response sent to {}", address);
         return Ok(());
     }
 
@@ -127,62 +129,91 @@ pub mod connection {
 
     pub async fn start_server(port: u16) -> Result<(), Box<dyn std::error::Error>> {
         let listener: TcpListener = get_listener(port)?;
+
         let tls_config = load_tls_config().await?;
         let acceptor = TlsAcceptor::from(Arc::new(tls_config));
 
-        println!("Server is listening on http//:localhost");
+        println!("Server is listening on https//:127.0.0.1:{port}");
 
         let shutdown: Arc<Notify> = Arc::new(Notify::new());
-        let mut tasks = JoinSet::new();
+        let is_shutting_down = Arc::new(AtomicBool::new(false));
+
+        let connections: Arc<Semaphore> = Arc::new(Semaphore::new(15));
+
         let shutdown_signal = shutdown.clone();
+        let shutdown_flag = is_shutting_down.clone();
 
         tokio::spawn(async move {
-            if let Err(_) = signal::ctrl_c().await {
-                error!("Failed to listen for shutdown signal");
+            if let Err(_) = tokio::signal::ctrl_c().await {
+                eprintln!("Failed to listen for shutdown signal");
+                std::process::exit(1);
+            } else {
+                shutdown_flag.store(true, Ordering::SeqCst);
+                shutdown_signal.notify_one();
             }
-            shutdown_signal.notify_one();
         });
 
-        loop {
-            tokio::select! {
-                result = listener.accept() => {
-                    match result {
-                        Ok((stream,address)) => {
-                            info!("New connection from {}",address);
-                            let acceptor = acceptor.clone();
-
-                            tasks.spawn(async move {
-                                if let Ok(tls_stream) = acceptor.accept(stream).await {
-                                    info!("TLS handshake successful with {}",address);
-
-                                    if let Err(_) = handle_connection(tls_stream,address.to_string()).await {
-                                        error!("Connection error");
-                                    }
-                                } else {
-                                    eprintln!("TLS handshake failed with {}",address);
-                                }
-
-                            });
-                        },
-                        Err(_) => {
-                            error!("Failed to accept connection");
-                        }
-                    }
-                }
-                _ = shutdown.notified() => {
-                        info!("Server shutdown signal recieved.");
-                        println!("Received Ctrl+C, shutting down...");
-                        break;
-                    }
+        tokio::select! {
+            _ = run_server(listener,acceptor,connections.clone(),is_shutting_down.clone())=> {
+            }
+            _ = shutdown.notified() => {
+                    info!("Server shutdown signal recieved.");
+                    println!("Received Ctrl+C, shutting down...");
             }
         }
 
         info!("Waiting for active tasks to complete");
-        while tasks.join_next().await.is_some() {
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        while connections.clone().available_permits() != 15 {
+            println!("waiting...");
         }
+
         info!("ALl tasks have completed. Server shutting down");
         println!("ALl tasks have completed. Server shutting down");
         return Ok(());
+    }
+
+    async fn run_server(
+        listener: TcpListener,
+        acceptor: TlsAcceptor,
+        connections: Arc<Semaphore>,
+        is_shutdown: Arc<AtomicBool>,
+    ) {
+        loop {
+            let connections = connections.clone();
+            if is_shutdown.load(Ordering::SeqCst) {
+                return;
+            }
+
+            let permit = connections.clone().acquire_owned().await.unwrap();
+            println!("Permit aquired");
+
+            let (stream, address) = match listener.accept().await {
+                Ok((s, a)) => (s, a),
+                Err(_) => {
+                    error!("Problem establishing connection");
+                    continue;
+                }
+            };
+
+            info!("New connection from {}", address);
+            let acceptor = acceptor.clone();
+
+            tokio::spawn(async move {
+                if let Ok(tls_stream) = acceptor.accept(stream).await {
+                    info!("TLS handshake successful with {}", address);
+
+                    if let Err(_) = handle_connection(tls_stream, address.to_string()).await {
+                        error!("Connection error");
+                    }
+
+                    println!("Finished task");
+                } else {
+                    eprintln!("TLS handshake failed with {}", address);
+                }
+
+                println!("Dropping permit");
+                drop(permit);
+            });
+        }
     }
 }
