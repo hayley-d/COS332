@@ -14,6 +14,8 @@ pub mod my_errors {
         ConnectionError(String),
     }
 
+    impl std::error::Error for ErrorType {}
+
     pub struct Logger {
         log_file: Arc<std::sync::Mutex<std::fs::File>>,
     }

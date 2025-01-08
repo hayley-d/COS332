@@ -7,6 +7,7 @@ pub use shutdown::*;
 pub mod api;
 pub use api::*;
 
+pub mod response;
 pub mod socket;
 
 pub mod request;

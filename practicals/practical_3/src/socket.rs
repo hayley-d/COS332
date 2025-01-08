@@ -9,19 +9,22 @@ pub mod connection {
     use rustls::pki_types::{CertificateDer, PrivateKeyDer};
     use rustls::ServerConfig;
     use std::error::Error;
-    use std::net::TcpListener as StdTcpListener;
+    use std::net::{IpAddr, TcpListener as StdTcpListener};
     use std::os::unix::io::FromRawFd;
     use std::path::PathBuf;
+    use std::str::FromStr;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
     use std::time::Duration;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
     use tokio::net::TcpStream;
-    use tokio::sync::{Notify, Semaphore};
+    use tokio::sync::{Mutex, Notify, Semaphore};
     use tokio::time::timeout;
     use tokio_rustls::server::TlsStream;
     use tokio_rustls::TlsAcceptor;
+
+    use crate::{Clock, Request};
 
     fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
         unsafe {
@@ -110,6 +113,7 @@ pub mod connection {
     async fn handle_connection(
         mut stream: TlsStream<TcpStream>,
         address: String,
+        clock: Arc<Mutex<Clock>>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         loop {
             let mut buffer = [0; 4096];
@@ -122,14 +126,18 @@ pub mod connection {
                 return Ok(());
             }
 
-            let request = String::from_utf8_lossy(&buffer[..bytes_read]);
+            let request: Request = Request::new(
+                &buffer[..bytes_read],
+                IpAddr::from_str(address.as_str())?,
+                clock.lock().await.increment_time(),
+            )?;
 
             println!(
                 "Request: method:{}, uri:{}, client IP:{}",
                 "GET", "/", address
             );
 
-            if request.contains("Connection: close") {
+            if request.headers.iter().any(|h| h == "Connection: close") {
                 return Ok(());
             }
 
@@ -148,6 +156,7 @@ pub mod connection {
     }
 
     pub async fn start_server(port: u16) -> Result<(), Box<dyn std::error::Error>> {
+        let clock: Arc<Mutex<Clock>> = Arc::new(Mutex::new(Clock::new()));
         let listener: TcpListener = get_listener(port)?;
 
         let tls_config = load_tls_config().await?;
@@ -176,7 +185,7 @@ pub mod connection {
         });
 
         tokio::select! {
-            _ = run_server(listener,acceptor,connections.clone(),is_shutting_down.clone())=> {
+            _ = run_server(listener,acceptor,connections.clone(),is_shutting_down.clone(),clock.clone())=> {
             }
             _ = shutdown.notified() => {
                     info!(target: "request_logger","Server shutdown signal recieved.");
@@ -232,6 +241,7 @@ pub mod connection {
         acceptor: TlsAcceptor,
         connections: Arc<Semaphore>,
         is_shutdown: Arc<AtomicBool>,
+        clock: Arc<Mutex<Clock>>,
     ) {
         loop {
             let connections = connections.clone();
@@ -258,11 +268,12 @@ pub mod connection {
 
             let acceptor = acceptor.clone();
 
+            let clock = clock.clone();
             let handle = tokio::spawn(async move {
                 if let Ok(tls_stream) = acceptor.accept(stream).await {
                     info!(target: "request_logger","TLS handshake successful with {}", address);
 
-                    let _ = handle_connection(tls_stream, address.to_string()).await;
+                    let _ = handle_connection(tls_stream, address.to_string(), clock.clone()).await;
                 } else {
                     error!(target: "error_logger","TLS handshake failed with {}", address);
                 }
