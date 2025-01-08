@@ -19,7 +19,6 @@ pub mod connection {
     use tokio::net::TcpListener;
     use tokio::net::TcpStream;
     use tokio::sync::{Notify, Semaphore};
-    use tokio::task::{JoinHandle, JoinSet};
     use tokio::time::timeout;
     use tokio_rustls::server::TlsStream;
     use tokio_rustls::TlsAcceptor;
@@ -99,24 +98,30 @@ pub mod connection {
         mut stream: TlsStream<TcpStream>,
         address: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut buffer = [0; 4096];
+        loop {
+            let mut buffer = [0; 4096];
 
-        // Read request from the client
-        let bytes_read = stream.read(&mut buffer).await?;
+            // Read request from the client
+            let bytes_read = stream.read(&mut buffer).await?;
 
-        if bytes_read == 0 {
-            println!("Client Disconnected");
-            return Ok(());
+            if bytes_read == 0 {
+                println!("Client Disconnected");
+                return Ok(());
+            }
+
+            let request = String::from_utf8_lossy(&buffer[..bytes_read]);
+            println!("Received request from {}: {}", address, request);
+
+            if request.contains("Connection: close") {
+                println!("Client requested connection close");
+                break;
+            }
+
+            // Craft a simple HTTP response
+            let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello, World!";
+            stream.write_all(response).await?;
+            stream.flush().await?;
         }
-
-        let request = String::from_utf8_lossy(&buffer[..bytes_read]);
-        println!("Received request from {}: {}", address, request);
-
-        // Craft a simple HTTP response
-        let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello, World!";
-        stream.write_all(response).await?;
-        stream.flush().await?;
-
         return Ok(());
     }
 
@@ -148,8 +153,12 @@ pub mod connection {
                 eprintln!("Failed to listen for shutdown signal");
                 std::process::exit(1);
             } else {
+                println!("Recieved shutdown request");
+                println!("Waiting for tasks to finish");
                 shutdown_flag.store(true, Ordering::SeqCst);
                 shutdown_signal.notify_one();
+                println!("Tasks complete, server shutdown started");
+                std::process::exit(0);
             }
         });
 
@@ -163,12 +172,9 @@ pub mod connection {
         }
 
         info!("Waiting for active tasks to complete");
-        while connections.clone().available_permits() != 15 {
-            println!("waiting...");
-        }
+        while connections.clone().available_permits() != 15 {}
 
         info!("ALl tasks have completed. Server shutting down");
-        println!("ALl tasks have completed. Server shutting down");
         return Ok(());
     }
 
@@ -180,17 +186,25 @@ pub mod connection {
     ) {
         loop {
             let connections = connections.clone();
-            if is_shutdown.load(Ordering::SeqCst) {
+
+            if Arc::clone(&is_shutdown).load(Ordering::SeqCst) {
                 return;
             }
 
             let permit = connections.clone().acquire_owned().await.unwrap();
-            println!("Permit aquired");
 
-            let (stream, address) = match listener.accept().await {
-                Ok((s, a)) => (s, a),
+            let result = timeout(Duration::from_millis(100), listener.accept()).await;
+
+            let (stream, address) = match result {
+                Ok(Ok((s, a))) => (s, a),
+                Ok(Err(_)) => {
+                    error!("Problem establishing connection");
+                    drop(permit);
+                    continue;
+                }
                 Err(_) => {
                     error!("Problem establishing connection");
+                    drop(permit);
                     continue;
                 }
             };
@@ -198,22 +212,23 @@ pub mod connection {
             info!("New connection from {}", address);
             let acceptor = acceptor.clone();
 
-            tokio::spawn(async move {
+            let handle = tokio::spawn(async move {
                 if let Ok(tls_stream) = acceptor.accept(stream).await {
                     info!("TLS handshake successful with {}", address);
 
                     if let Err(_) = handle_connection(tls_stream, address.to_string()).await {
                         error!("Connection error");
                     }
-
-                    println!("Finished task");
                 } else {
                     eprintln!("TLS handshake failed with {}", address);
                 }
 
-                println!("Dropping permit");
                 drop(permit);
+
+                return;
             });
+
+            handle.await.unwrap();
         }
     }
 }
