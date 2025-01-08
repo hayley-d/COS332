@@ -129,6 +129,10 @@ impl Response {
         return self;
     }
 
+    pub fn add_code(&mut self, code: HttpCode) {
+        self.code = code;
+    }
+
     pub fn content_type(mut self, content_type: ContentType) -> Self {
         self.content_type = content_type;
         return self;

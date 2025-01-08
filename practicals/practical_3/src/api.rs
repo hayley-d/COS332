@@ -60,28 +60,6 @@ pub async fn handle_response(request: Request) -> Response {
 /// A `Response` specific to the GET request, such as HTML content
 /// or an error response if applicable.
 async fn handle_get(request: Request) -> Response {
-    if request.headers.contains(&String::from("Brew")) || request.uri == "/coffee" {
-        let response = Response::default()
-            .await
-            .code(HttpCode::Teapot)
-            .content_type(ContentType::Text)
-            .compression(request.is_compression_supported())
-            .body(
-                r#"
-      I'm a Teapot, I can't brew coffee
-         _______
-        /       \
-       |  O   O |
-       |    ^    |
-        \_______/
-"#
-                .as_bytes()
-                .to_vec(),
-            );
-
-        return response;
-    }
-
     let mut response = Response::default()
         .await
         .compression(request.is_compression_supported());
@@ -97,6 +75,10 @@ async fn handle_get(request: Request) -> Response {
     } else if request.uri == "/home" {
         info!("GET /home status: 200");
         response.add_body(read_file_to_bytes("static/home.html").await);
+    } else if request.uri == "/coffee" {
+        info!("GET /coffee status: 418");
+        response.add_code(HttpCode::Teapot);
+        response.add_body(read_file_to_bytes("static/teapot.html").await);
     } else {
         // Error
         error!("Failed to serve request GET {}", request.uri);
