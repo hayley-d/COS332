@@ -121,3 +121,18 @@
 2025-01-08 17:49:06.014 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:98 - GET /home status: 200
 2025-01-08 17:49:06.049 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:289 - TLS handshake successful with 127.0.0.1:53508
 2025-01-08 17:49:06.049 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:91 - GET / from status 200
+2025-01-08 18:02:31.313 [INFO] main src/main.rs:23 - Server Started
+2025-01-08 18:02:31.313 [INFO] main src/socket.rs:80 - Server started listening on port 7878
+2025-01-08 18:02:31.314 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:109 - TLS certificate and keys configured
+2025-01-08 18:02:42.971 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:288 - TLS handshake successful with 127.0.0.1:49698
+2025-01-08 18:02:42.972 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:79 - GET /coffee status: 418
+2025-01-08 18:02:43.010 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:288 - TLS handshake successful with 127.0.0.1:49704
+2025-01-08 18:02:43.011 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:69 - GET / from status 200
+2025-01-08 18:02:55.778 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:288 - TLS handshake successful with 127.0.0.1:57506
+2025-01-08 18:02:55.779 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:69 - GET / from status 200
+2025-01-08 18:02:55.802 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:288 - TLS handshake successful with 127.0.0.1:57524
+2025-01-08 18:02:55.803 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:69 - GET / from status 200
+2025-01-08 18:03:02.468 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:288 - TLS handshake successful with 127.0.0.1:57534
+2025-01-08 18:03:02.468 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:79 - GET /coffee status: 418
+2025-01-08 18:03:02.495 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:288 - TLS handshake successful with 127.0.0.1:57558
+2025-01-08 18:03:02.496 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:69 - GET / from status 200
