@@ -93,9 +93,27 @@ pub mod connection {
     }
 
     async fn handle_connection(
-        stream: TlsStream<TcpStream>,
+        mut stream: TlsStream<TcpStream>,
         address: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut buffer = [0; 4096];
+
+        // Read request from the client
+        let bytes_read = stream.read(&mut buffer).await?;
+
+        if bytes_read == 0 {
+            return Ok(());
+        }
+
+        let request = String::from_utf8_lossy(&buffer[..bytes_read]);
+        println!("Received request from {}: {}", address, request);
+
+        // Craft a simple HTTP response
+        let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello, World!";
+        stream.write_all(response).await?;
+        stream.flush().await?;
+
+        println!("Response sent to {}", address);
         return Ok(());
     }
 
@@ -144,6 +162,8 @@ pub mod connection {
                                     if let Err(_) = handle_connection(tls_stream,address.to_string()).await {
                                         error!("Connection error");
                                     }
+                                } else {
+                                    eprintln!("TLS handshake failed with {}",address);
                                 }
 
                                 drop(permit);

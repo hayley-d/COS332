@@ -11,7 +11,6 @@ pub mod connections {
     use tokio::sync::{broadcast, Mutex, Semaphore};
     use tokio::{fs, time};
 
-    use crate::request_validation::handle_request;
     use crate::shutdown::Message;
     use crate::ErrorType;
 
@@ -50,7 +49,7 @@ pub mod connections {
                 }
             };
 
-            handle_request(&buffer[..bytes_read])?;
+            //handle_request(&buffer[..bytes_read])?;
 
             if buffer.starts_with(get_route("test")) {
                 format_response(

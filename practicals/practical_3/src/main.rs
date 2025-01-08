@@ -1,22 +1,13 @@
 use colored::Colorize;
-use log::{error, info};
-use rust_server::connection::connections::*;
-use rust_server::error::my_errors::*;
-use rust_server::request_validation::handle_request;
-use rust_server::{handle_response, my_socket::*, request::*, shutdown::*};
+use log::error;
+use practical_3::socket::connection::start_server;
+use practical_3::{ErrorType, Logger};
 use std::env;
-use std::net::SocketAddr;
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
-use tokio::sync::{broadcast, Mutex, Semaphore};
-use tokio::time::timeout;
 
 const DEFAULT_PORT: u16 = 7878;
 
 #[tokio::main]
-async fn main() -> Result<(), ErrorType> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let logger: Logger = Logger::new("server.log");
 
     let port: u16 = match env::args()
@@ -33,68 +24,14 @@ async fn main() -> Result<(), ErrorType> {
         }
     };
 
-    let socket = match create_socket(port) {
-        Ok(s) => s,
-        Err(e) => {
-            error!("Failed to create socket");
-            logger.log_error(&e);
-            panic!(
-                "{}",
-                "Error creating socket, refer to the server log"
-                    .red()
-                    .bold()
-            );
-        }
-    };
-
-    // create a listener from the socket
-    let listener = match get_listener(socket) {
-        Ok(s) => s,
-        Err(e) => {
-            error!("Failed to create TCP listener");
-            logger.log_error(&e);
-            panic!(
-                "{}",
-                "Error creating listener, refer to the server log"
-                    .red()
-                    .bold()
-            );
-        }
-    };
-
-    // create a channel
-    let (tx, _rx) = broadcast::channel(10);
-    let tx = Arc::new(Mutex::new(tx));
-    let mut shutdown = Shutdown::new(Arc::clone(&tx));
-
-    // Graceful shutdown using signal handling
-    let shutdown_signal = tokio::signal::ctrl_c();
-
-    let listener: Listener = Listener {
-        listener,
-        connection_limit: Arc::new(Semaphore::new(5)),
-        shutdown_tx: Arc::clone(&tx),
-    };
-
     print_server_info(port);
 
-    tokio::select! {
-        _ = run_server(listener,Arc::new(Mutex::new(Clock::new()))) => {
-            println!("{}","Gracefull shutdown completed successfully.".cyan());
-        }
-        _ = shutdown_signal => {
-            info!("Server shutdown initiated");
-            println!("{}{}","WARNING:".yellow().bold()," SIGINT received: Requesting shutdown..".yellow());
-            println!("{}","Shutdown requested.\nWaiting for pending I/O...".cyan());
-            info!("Server shutdown successful");
-            shutdown.initiate_shutdown().await;
-        }
-    }
+    let _ = start_server(port).await;
 
     Ok(())
 }
 
-async fn run_server(mut listener: Listener, clock: Arc<Mutex<Clock>>) -> Result<(), ErrorType> {
+/*async fn run_server(mut listener: Listener, clock: Arc<Mutex<Clock>>) -> Result<(), ErrorType> {
     loop {
         let c = Arc::clone(&clock);
 
@@ -184,7 +121,7 @@ async fn run_server(mut listener: Listener, clock: Arc<Mutex<Clock>>) -> Result<
             drop(permit);
         });
     }
-}
+}*/
 
 fn print_server_info(port: u16) {
     println!("{}", "Server started:".cyan());
