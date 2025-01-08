@@ -18,6 +18,7 @@ pub mod connection {
     use tokio::net::TcpStream;
     use tokio::signal;
     use tokio::sync::{Notify, Semaphore};
+    use tokio::task::JoinSet;
     use tokio_rustls::server::TlsStream;
     use tokio_rustls::TlsAcceptor;
 
@@ -132,15 +133,14 @@ pub mod connection {
         println!("Server is listening on http//:localhost");
 
         let shutdown: Arc<Notify> = Arc::new(Notify::new());
-
-        // at most 10 concurrent connections
-        let active_tasks: Arc<Semaphore> = Arc::new(Semaphore::new(10));
+        let mut tasks = JoinSet::new();
         let shutdown_signal = shutdown.clone();
 
         tokio::spawn(async move {
             if let Err(_) = signal::ctrl_c().await {
                 error!("Failed to listen for shutdown signal");
             }
+            shutdown_signal.notify_one();
         });
 
         loop {
@@ -150,12 +150,8 @@ pub mod connection {
                         Ok((stream,address)) => {
                             info!("New connection from {}",address);
                             let acceptor = acceptor.clone();
-                            let active_tasks = active_tasks.clone();
 
-                            // unwrap is safe here
-                            let permit = active_tasks.clone().acquire_owned().await.unwrap();
-
-                            tokio::spawn(async move {
+                            tasks.spawn(async move {
                                 if let Ok(tls_stream) = acceptor.accept(stream).await {
                                     info!("TLS handshake successful with {}",address);
 
@@ -166,7 +162,6 @@ pub mod connection {
                                     eprintln!("TLS handshake failed with {}",address);
                                 }
 
-                                drop(permit);
                             });
                         },
                         Err(_) => {
@@ -183,9 +178,11 @@ pub mod connection {
         }
 
         info!("Waiting for active tasks to complete");
-        while active_tasks.available_permits() != 5 {
+        while tasks.join_next().await.is_some() {
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
+        info!("ALl tasks have completed. Server shutting down");
+        println!("ALl tasks have completed. Server shutting down");
         return Ok(());
     }
 }
