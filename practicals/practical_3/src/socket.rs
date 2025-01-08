@@ -187,6 +187,46 @@ pub mod connection {
         return Ok(());
     }
 
+    /// Runs the main server loop for handling incoming connections.
+    ///
+    /// This asynchronous function listens for incoming connections, performs a TLS handshake and
+    /// spawns tasks to handle each connection.
+    ///
+    /// # Parameters
+    /// - `listener`: A [`TcpListener`] that listens for incoming connections.
+    /// - `acceptor`: A [`TlsAcceptor`] for performing a TLS handshake with clients.
+    /// - `connections`: A [`Semaphore`] wrapped in an [`Arc`], used to limit the number of
+    /// conecurrent connections.
+    /// - `is_shutdown`: An [`AtomicBool`] wrapped in an [`Arc`], used to signal the server to
+    /// shutdown.
+    ///
+    /// # Behaviour
+    /// - The server loop continues indefinitely until the `is_shutdown` is set to `true`.
+    /// - Each iteration attempts to acquire a permit from the semaphore before accepting a new
+    /// connection.
+    /// - A `timeout` is applied to the `listener.accept()` call to avoid indefinite blocking.
+    /// - If a connection is successfully accepted, a TLS hanshake is performed.
+    /// - After the TLS handshake, the connection is handed off to the `handle_connection'
+    ///
+    /// # Errors
+    /// - If the 'listener.accpet()` call failes or times out, the loop will continue without
+    /// crashing.
+    /// - If the TLS handshake fails, an error is logged, and the loop continues.
+    ///
+    /// # Example Usage
+    /// ```rust
+    /// use tokio::net::TcpListener;
+    /// use tokio_rustls::TlsAcceptor;
+    /// use tokio::sync::Semaphore;
+    /// use std::sync::atomic::AtomicBool;
+    /// let listener = TcpListener::bind("127.0.0.1:443").await.unwrap();
+    /// let tls_config = load_tls_config().await.unwrap();
+    /// let acceptor = TlsAcceptor::from(Arc::new(tls_config));
+    /// let connections = Arc::new(Semaphore::new(100));
+    /// let is_shutdown = Arc::new(AtomicBool::new(false));
+    ///
+    /// run_server(listener, acceptor, connections, is_shutdown).await;
+    /// ```
     async fn run_server(
         listener: TcpListener,
         acceptor: TlsAcceptor,
