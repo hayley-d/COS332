@@ -106,7 +106,10 @@ impl Request {
             HttpMethod::new(request[0].split_whitespace().collect::<Vec<&str>>()[0]);
 
         // get the uri from the first line
-        let uri: String = request[0].split_whitespace().collect::<Vec<&str>>()[1].to_string();
+        let mut uri: String = request[0].split_whitespace().collect::<Vec<&str>>()[1].to_string();
+        if uri == "/favicon.ico" {
+            uri = "/".to_string();
+        }
 
         // headers are the rest of the
         let mut headers: Vec<String> = Vec::with_capacity(request.len() - 1);

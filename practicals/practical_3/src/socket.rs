@@ -9,10 +9,9 @@ pub mod connection {
     use rustls::pki_types::{CertificateDer, PrivateKeyDer};
     use rustls::ServerConfig;
     use std::error::Error;
-    use std::net::{IpAddr, TcpListener as StdTcpListener};
+    use std::net::TcpListener as StdTcpListener;
     use std::os::unix::io::FromRawFd;
     use std::path::PathBuf;
-    use std::str::{from_utf8, FromStr};
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
     use std::time::Duration;
@@ -24,7 +23,8 @@ pub mod connection {
     use tokio_rustls::server::TlsStream;
     use tokio_rustls::TlsAcceptor;
 
-    use crate::{Clock, Request};
+    use crate::response::Response;
+    use crate::{handle_response, Clock, Request};
 
     fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
         unsafe {
@@ -143,6 +143,8 @@ pub mod connection {
                 }
             };
 
+            println!("{}", request);
+
             if request.headers.iter().any(|h| h == "Connection: close") {
                 println!("Connection closed");
                 let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nBye, World!";
@@ -152,9 +154,9 @@ pub mod connection {
                 return Ok(());
             }
 
-            // Craft a simple HTTP response
-            let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello, World!";
-            stream.write_all(response).await?;
+            let mut response: Response = handle_response(request).await;
+
+            stream.write_all(&response.to_bytes()).await?;
             stream.flush().await?;
             return Ok(());
         }
