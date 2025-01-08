@@ -32,7 +32,7 @@ pub mod connection {
             let socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 
             if socket_fd < 0 {
-                error!("Failed to create socket");
+                error!(target: "error_logger","Failed to create socket");
                 std::process::exit(1);
             }
 
@@ -46,7 +46,7 @@ pub mod connection {
                 std::mem::size_of_val(&option_val) as u32,
             ) < 0
             {
-                error!("Failed to set socket options");
+                error!(target: "error_logger","Failed to set socket options");
                 std::process::exit(1);
             }
 
@@ -64,17 +64,17 @@ pub mod connection {
                 std::mem::size_of::<sockaddr_in>() as u32,
             ) < 0
             {
-                error!("Failed to bind socket to address");
+                error!(target: "error_logger","Failed to bind socket to address");
                 std::process::exit(1);
             }
 
             // Start listening at address
             if listen(socket_fd, 128) < 0 {
-                error!("Failed to listen on socket");
+                error!(target:"error_logger","Failed to listen on socket");
                 std::process::exit(1);
             }
 
-            info!("Server started listening on port {}", port);
+            info!(target:"request_logger","Server started listening on port {}", port);
             return Ok(socket_fd);
         }
     }
@@ -83,9 +83,21 @@ pub mod connection {
         let cert_path: PathBuf = PathBuf::from("server.crt");
         let key_path: PathBuf = PathBuf::from("server.key");
 
-        let certs =
-            vec![CertificateDer::from_pem_file(&cert_path).expect("Cannot open certificate file")];
-        let key = PrivateKeyDer::from_pem_file(&key_path).expect("Cannot open pk file");
+        let certs = vec![match CertificateDer::from_pem_file(&cert_path) {
+            Ok(c) => c,
+            Err(_) => {
+                error!(target:"error_logger","Cannot open certificate file");
+                std::process::exit(1);
+            }
+        }];
+
+        let key = match PrivateKeyDer::from_pem_file(&key_path) {
+            Ok(k) => k,
+            Err(_) => {
+                error!(target: "error_logger","Cannot open pk file");
+                std::process::exit(1);
+            }
+        };
 
         let config = ServerConfig::builder()
             .with_no_client_auth()

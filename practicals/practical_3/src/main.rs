@@ -1,5 +1,5 @@
 use colored::Colorize;
-use log::{error, info};
+use log::info;
 use practical_3::socket::connection::start_server;
 use std::env;
 
