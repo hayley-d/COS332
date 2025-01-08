@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::fmt;
 use thiserror::Error;
 
@@ -86,7 +85,7 @@ impl Http2ErrorCode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum Http2Error {
     #[error("HTTP/2 error: {0}")]
     GeneralError(Http2ErrorCode),
@@ -98,9 +97,7 @@ pub enum Http2Error {
     InvalidFrame(String),
 }
 
-impl Error for Http2Error {}
-
-impl fmt::Display for Http2Error {
+/*impl fmt::Display for Http2Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Http2Error::GeneralError(s) => write!(f, "General error: {}", s),
@@ -108,7 +105,7 @@ impl fmt::Display for Http2Error {
             Http2Error::InvalidFrame(s) => write!(f, "Invalid frame error: {}", s),
         }
     }
-}
+}*/
 
 impl Http2Error {
     /// Create a new HTTP/2 general error.
