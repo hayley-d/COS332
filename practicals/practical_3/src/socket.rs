@@ -132,14 +132,14 @@ pub mod connection {
                 clock.lock().await.increment_time(),
             )?;
 
-            println!(
-                "Request: method:{}, uri:{}, client IP:{}",
-                "GET", "/", address
-            );
-
             if request.headers.iter().any(|h| h == "Connection: close") {
                 return Ok(());
             }
+
+            println!(
+                "Request: method:{}, uri:{}, client IP:{}",
+                request.method, request.uri, request.client_ip
+            );
 
             // Craft a simple HTTP response
             let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello, World!";

@@ -1,4 +1,5 @@
-use crate::{ContentType, ErrorType, HttpCode, HttpMethod, MyDefault, Request, Response};
+use crate::response::{MyDefault, Response};
+use crate::{ContentType, ErrorType, HttpCode, HttpMethod, Request};
 use argon2::password_hash::SaltString;
 use argon2::PasswordHash;
 use argon2::{Argon2, PasswordHasher, PasswordVerifier};
