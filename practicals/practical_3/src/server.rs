@@ -18,6 +18,7 @@ use tokio::time::timeout;
 use tokio_postgres::{Client, NoTls};
 use tokio_rustls::server::TlsStream;
 use tokio_rustls::TlsAcceptor;
+use uuid::Uuid;
 
 use crate::redis_connection::{get_cached_content, read_and_cache_page, set_up_redis};
 use crate::response::Response;
@@ -57,17 +58,26 @@ impl SharedState {
         &mut self,
         username: String,
         password: String,
-    ) -> Result<i64, Box<dyn std::error::Error>> {
+    ) -> Result<String, Box<dyn std::error::Error>> {
         let hash = Self::hash_password(&password).unwrap();
+        let session_id = Uuid::new_v4();
 
         let query = self
             .client
-            .prepare("INSERT INTO users (username,password) VALUES ($1,$2) RETURNING session_id")
+            .prepare("INSERT INTO users (username,password,session_id) VALUES ($1,$2,$3) RETURNING session_id")
             .await?;
 
-        let row = self.client.execute(&query, &[&username, &hash]).await?;
-        //let session_id: String = row.get(0).unwrap().get(0);
-        todo!()
+        let row = self
+            .client
+            .query_one(&query, &[&username, &hash, &session_id])
+            .await?;
+
+        let session_id: String = row.get(0);
+
+        return Ok(session_id);
+    }
+
+    pub async fn find_user(&mut self,username: String) -> {
     }
 
     fn hash_password(password: &str) -> Result<String, Box<dyn std::error::Error>> {
@@ -83,8 +93,16 @@ impl SharedState {
         };
     }
 
-    fn validate_password(password: &str, hash: &str) -> Result<(), Box<dyn std::error::Error>> {
-        todo!()
+    fn validate_password(password: &str, hash: &str) -> Result<(), ()> {
+        let parsed = match PasswordHash::new(hash) {
+            Ok(p) => p,
+            Err(_) => return Err(()),
+        };
+
+        return match Argon2::default().verify_password(password.as_bytes(), &parsed) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(()),
+        };
     }
 }
 
