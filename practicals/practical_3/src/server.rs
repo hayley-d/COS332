@@ -1,6 +1,11 @@
+use argon2::password_hash::SaltString;
+use argon2::PasswordHash;
+use argon2::{Argon2, PasswordHasher, PasswordVerifier};
+
 use colored::Colorize;
 use dotenv::dotenv;
 use log::{error, info};
+use rand::rngs::OsRng;
 use std::env;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -10,7 +15,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Mutex, Notify, Semaphore};
 use tokio::time::timeout;
-use tokio_postgres::NoTls;
+use tokio_postgres::{Client, NoTls};
 use tokio_rustls::server::TlsStream;
 use tokio_rustls::TlsAcceptor;
 
@@ -24,13 +29,15 @@ const DEFAULT_PORT: u16 = 7878;
 pub struct SharedState {
     pub redis_connection: redis::Connection,
     pub clock: Clock,
+    pub client: Client,
 }
 
 impl SharedState {
-    pub fn new(redis_connection: redis::Connection, clock: Clock) -> Self {
+    pub fn new(redis_connection: redis::Connection, clock: Clock, client: Client) -> Self {
         return SharedState {
             redis_connection,
             clock,
+            client,
         };
     }
 
@@ -45,18 +52,44 @@ impl SharedState {
     pub async fn read_and_cache_page(&mut self, path: &PathBuf, route_name: &str) -> Vec<u8> {
         read_and_cache_page(&mut self.redis_connection, path, route_name).await
     }
+
+    pub async fn add_user(
+        &mut self,
+        username: String,
+        password: String,
+    ) -> Result<i64, Box<dyn std::error::Error>> {
+        let hash = Self::hash_password(&password).unwrap();
+
+        let query = self
+            .client
+            .prepare("INSERT INTO users (username,password) VALUES ($1,$2) RETURNING session_id")
+            .await?;
+
+        let row = self.client.execute(&query, &[&username, &hash]).await?;
+        //let session_id: String = row.get(0).unwrap().get(0);
+        todo!()
+    }
+
+    fn hash_password(password: &str) -> Result<String, Box<dyn std::error::Error>> {
+        let salt = SaltString::generate(&mut OsRng);
+        let argon2 = Argon2::default();
+
+        return match argon2.hash_password(&password.as_bytes(), salt.as_salt()) {
+            Ok(hash) => Ok(hash.to_string()),
+            Err(_) => {
+                error!(target: "error_logger","Failed to create new user");
+                std::process::exit(1);
+            }
+        };
+    }
+
+    fn validate_password(password: &str, hash: &str) -> Result<(), Box<dyn std::error::Error>> {
+        todo!()
+    }
 }
 
 pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
     //let redis_child: Child = start_redis_server().await;
-
-    let state: Arc<Mutex<SharedState>> = Arc::new(Mutex::new(SharedState::new(
-        match set_up_redis() {
-            Ok(c) => c,
-            _ => std::process::exit(1),
-        },
-        Clock::new(),
-    )));
 
     println!("{}{}", ">> ".red().bold(), "Redis working: ".cyan(),);
 
@@ -93,12 +126,21 @@ pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    if let Err(e) = connection.await {
-        eprintln!("Connection error: {}", e);
-        std::process::exit(1);
-    } else {
-        println!("Connected to PostgreSQL");
-    }
+    tokio::spawn(async move {
+        if let Err(e) = connection.await {
+            eprintln!("Connection error: {}", e);
+            std::process::exit(1);
+        }
+    });
+
+    let state: Arc<Mutex<SharedState>> = Arc::new(Mutex::new(SharedState::new(
+        match set_up_redis() {
+            Ok(c) => c,
+            _ => std::process::exit(1),
+        },
+        Clock::new(),
+        client,
+    )));
 
     rustls::crypto::ring::default_provider()
         .install_default()
