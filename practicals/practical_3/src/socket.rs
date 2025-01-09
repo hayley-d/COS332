@@ -1,9 +1,6 @@
-/// This module provides utility functions for creating and managing sockets.
-/// It utilizes the `socket2` crate for advanced socket operations and integrates with
-/// Tokio's asynchronous networking capabilities.
+/// All raw socket creation happens here.
+/// this modules is for any thing related to the socket connection
 pub mod connection {
-    use crate::response::Response;
-    use crate::{handle_response, Clock, Request};
     use libc::*;
     use libc::{setsockopt, socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR};
     use log::{error, info};
@@ -14,16 +11,7 @@ pub mod connection {
     use std::net::TcpListener as StdTcpListener;
     use std::os::unix::io::FromRawFd;
     use std::path::PathBuf;
-    use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::Arc;
-    use std::time::Duration;
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
-    use tokio::net::TcpStream;
-    use tokio::sync::{Mutex, Notify, Semaphore};
-    use tokio::time::timeout;
-    use tokio_rustls::server::TlsStream;
-    use tokio_rustls::TlsAcceptor;
 
     fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
         unsafe {
@@ -81,7 +69,7 @@ pub mod connection {
         }
     }
 
-    async fn load_tls_config() -> Result<ServerConfig, Box<dyn std::error::Error>> {
+    pub async fn load_tls_config() -> Result<ServerConfig, Box<dyn std::error::Error>> {
         let cert_path: PathBuf = PathBuf::from("server.crt");
         let key_path: PathBuf = PathBuf::from("server.key");
 
@@ -109,194 +97,10 @@ pub mod connection {
         return Ok(config);
     }
 
-    async fn handle_connection(
-        mut stream: TlsStream<TcpStream>,
-        address: String,
-        clock: Arc<Mutex<Clock>>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        loop {
-            let mut buffer = [0; 4096];
-
-            // Read request from the client
-            let bytes_read = timeout(Duration::from_millis(100), stream.read(&mut buffer)).await;
-
-            let bytes_read = match bytes_read {
-                Ok(b) => b?,
-                Err(_) => return Ok(()),
-            };
-
-            if bytes_read == 0 {
-                println!("Client Disconnected");
-                return Ok(());
-            }
-
-            let request: Request = match Request::new(
-                &buffer[..bytes_read],
-                address.clone(),
-                clock.lock().await.increment_time(),
-            ) {
-                Ok(r) => r,
-                Err(_) => {
-                    println!("Unable to parse in request");
-                    std::process::exit(1);
-                }
-            };
-
-            println!("{}", request);
-
-            if request.headers.iter().any(|h| h == "Connection: close") {
-                println!("Connection closed");
-                let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nBye, World!";
-                stream.write_all(response).await?;
-                stream.flush().await?;
-
-                return Ok(());
-            }
-
-            let mut response: Response = handle_response(request).await;
-
-            stream.write_all(&response.to_bytes()).await?;
-            stream.flush().await?;
-            return Ok(());
-        }
-    }
-
     /// Converts a raw libc socket into a tokio TcpListener
-    fn get_listener(port: u16) -> Result<TcpListener, Box<dyn std::error::Error>> {
+    pub fn get_listener(port: u16) -> Result<TcpListener, Box<dyn std::error::Error>> {
         let raw_fd = create_raw_socket(port)?;
         let listener: StdTcpListener = unsafe { StdTcpListener::from_raw_fd(raw_fd) };
         return Ok(TcpListener::from_std(listener)?);
-    }
-
-    pub async fn start_server(port: u16) -> Result<(), Box<dyn std::error::Error>> {
-        let clock: Arc<Mutex<Clock>> = Arc::new(Mutex::new(Clock::new()));
-        let listener: TcpListener = get_listener(port)?;
-
-        let tls_config = load_tls_config().await?;
-        let acceptor = TlsAcceptor::from(Arc::new(tls_config));
-
-        let shutdown: Arc<Notify> = Arc::new(Notify::new());
-        let is_shutting_down = Arc::new(AtomicBool::new(false));
-
-        let connections: Arc<Semaphore> = Arc::new(Semaphore::new(15));
-
-        let shutdown_signal = shutdown.clone();
-        let shutdown_flag = is_shutting_down.clone();
-
-        tokio::spawn(async move {
-            if let Err(_) = tokio::signal::ctrl_c().await {
-                eprintln!("Failed to listen for shutdown signal");
-                std::process::exit(1);
-            } else {
-                println!("Recieved shutdown request");
-                println!("Waiting for tasks to finish");
-                shutdown_flag.store(true, Ordering::SeqCst);
-                shutdown_signal.notify_one();
-                println!("Tasks complete, server shutdown started");
-                std::process::exit(0);
-            }
-        });
-
-        tokio::select! {
-            _ = run_server(listener,acceptor,connections.clone(),is_shutting_down.clone(),clock.clone())=> {
-            }
-            _ = shutdown.notified() => {
-                    info!(target: "request_logger","Server shutdown signal recieved.");
-                    println!("Server shutdown signal recieved.");
-            }
-        }
-        while connections.clone().available_permits() != 15 {}
-        return Ok(());
-    }
-
-    /// Runs the main server loop for handling incoming connections.
-    ///
-    /// This asynchronous function listens for incoming connections, performs a TLS handshake and
-    /// spawns tasks to handle each connection.
-    ///
-    /// # Parameters
-    /// - `listener`: A [`TcpListener`] that listens for incoming connections.
-    /// - `acceptor`: A [`TlsAcceptor`] for performing a TLS handshake with clients.
-    /// - `connections`: A [`Semaphore`] wrapped in an [`Arc`], used to limit the number of
-    /// conecurrent connections.
-    /// - `is_shutdown`: An [`AtomicBool`] wrapped in an [`Arc`], used to signal the server to
-    /// shutdown.
-    ///
-    /// # Behaviour
-    /// - The server loop continues indefinitely until the `is_shutdown` is set to `true`.
-    /// - Each iteration attempts to acquire a permit from the semaphore before accepting a new
-    /// connection.
-    /// - A `timeout` is applied to the `listener.accept()` call to avoid indefinite blocking.
-    /// - If a connection is successfully accepted, a TLS hanshake is performed.
-    /// - After the TLS handshake, the connection is handed off to the `handle_connection'
-    ///
-    /// # Errors
-    /// - If the 'listener.accpet()` call failes or times out, the loop will continue without
-    /// crashing.
-    /// - If the TLS handshake fails, an error is logged, and the loop continues.
-    ///
-    /// # Example Usage
-    /// ```rust
-    /// use tokio::net::TcpListener;
-    /// use tokio_rustls::TlsAcceptor;
-    /// use tokio::sync::Semaphore;
-    /// use std::sync::atomic::AtomicBool;
-    /// let listener = TcpListener::bind("127.0.0.1:443").await.unwrap();
-    /// let tls_config = load_tls_config().await.unwrap();
-    /// let acceptor = TlsAcceptor::from(Arc::new(tls_config));
-    /// let connections = Arc::new(Semaphore::new(100));
-    /// let is_shutdown = Arc::new(AtomicBool::new(false));
-    ///
-    /// run_server(listener, acceptor, connections, is_shutdown).await;
-    /// ```
-    async fn run_server(
-        listener: TcpListener,
-        acceptor: TlsAcceptor,
-        connections: Arc<Semaphore>,
-        is_shutdown: Arc<AtomicBool>,
-        clock: Arc<Mutex<Clock>>,
-    ) {
-        loop {
-            let connections = connections.clone();
-
-            if Arc::clone(&is_shutdown).load(Ordering::SeqCst) {
-                return;
-            }
-
-            let permit = connections.clone().acquire_owned().await.unwrap();
-
-            let result = timeout(Duration::from_millis(100), listener.accept()).await;
-
-            let (stream, address) = match result {
-                Ok(Ok((s, a))) => (s, a),
-                Ok(Err(_)) => {
-                    drop(permit);
-                    continue;
-                }
-                Err(_) => {
-                    drop(permit);
-                    continue;
-                }
-            };
-
-            let acceptor = acceptor.clone();
-
-            let clock = clock.clone();
-            let handle = tokio::spawn(async move {
-                if let Ok(tls_stream) = acceptor.accept(stream).await {
-                    info!(target: "request_logger","TLS handshake successful with {}", address);
-
-                    let _ = handle_connection(tls_stream, address.to_string(), clock.clone()).await;
-                } else {
-                    error!(target: "error_logger","TLS handshake failed with {}", address);
-                }
-
-                drop(permit);
-
-                return;
-            });
-
-            handle.await.unwrap();
-        }
     }
 }

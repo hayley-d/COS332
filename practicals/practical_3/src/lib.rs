@@ -8,6 +8,8 @@ pub mod api;
 pub use api::*;
 
 pub mod redis_connection;
+pub mod server;
+
 pub mod response;
 pub mod socket;
 
