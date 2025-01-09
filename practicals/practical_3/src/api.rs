@@ -1,4 +1,3 @@
-use crate::redis_connection::{get_cached_content, read_and_cache_page};
 use crate::response::{MyDefault, Response};
 use crate::server::SharedState;
 use crate::{ContentType, ErrorType, HttpCode, HttpMethod, Request};
@@ -12,8 +11,6 @@ use rand::Rng;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::thread;
-use std::time::Duration;
 use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::Mutex;
@@ -58,36 +55,24 @@ async fn handle_get(request: Request, state: Arc<Mutex<SharedState>>) -> Respons
     let mut response = Response::default()
         .await
         .compression(request.is_compression_supported());
-
     if request.uri == "/" {
-        let bytes = get_bytes(state, PathBuf::from(r"static/index.html"), "/").await;
-
         info!(target: "request_logger","GET / from status 200");
-        response.add_body(bytes);
+        response.add_body(get_bytes(state, PathBuf::from(r"static/index.html"), "/").await);
     } else if request.uri == "/home" {
-        let bytes = get_bytes(state, PathBuf::from(r"static/home.html"), "/home").await;
         info!(target: "request_logger","GET /home status: 200");
-        response.add_body(bytes);
+        response.add_body(get_bytes(state, PathBuf::from(r"static/home.html"), "/home").await);
     } else if request.uri == "/coffee" {
         info!(target: "request_logger","GET /coffee status: 418");
-        let bytes = get_bytes(state, PathBuf::from(r"static/teapot.html"), "/coffee").await;
-        return response.code(HttpCode::Teapot).body(bytes);
+        return response
+            .code(HttpCode::Teapot)
+            .body(get_bytes(state, PathBuf::from(r"static/teapot.html"), "/coffee").await);
     } else {
-        let bytes = get_bytes(state, PathBuf::from(r"static/404.html"), "/404").await;
         error!(target: "error_logger","Failed to serve request GET {}", request.uri);
         info!(target: "request_logger","GET {} status: 404", request.uri);
-
-        println!(
-            "{} {} {} {}",
-            ">>".red().bold(),
-            "No matching routes for".red(),
-            request.method.to_string().magenta(),
-            request.uri.cyan()
-        );
         return response
             .code(HttpCode::BadRequest)
             .content_type(ContentType::Text)
-            .body(bytes);
+            .body(get_bytes(state, PathBuf::from(r"static/404.html"), "/404").await);
     }
     return response;
 }
@@ -254,16 +239,7 @@ async fn handle_post(request: Request, state: Arc<Mutex<SharedState>>) -> Respon
         .code(HttpCode::BadRequest);
 }
 
-/// Handles HTTP PUT requests. Currently, it responds with a `MethodNotAllowed`
-/// HTTP status code, as this method is not implemented.
-///
-/// # Arguments
-/// - `request`: The HTTP PUT request to process.
-/// - `logger`: A shared logger instance for recording log entries.
-///
-/// # Returns
-/// A `Response` with a `MethodNotAllowed` status.
-async fn handle_put(request: Request) -> Response {
+async fn handle_put(request: Request, state: Arc<Mutex<SharedState>>) -> Response {
     info!("{}", request);
 
     let response = Response::default()
@@ -275,15 +251,7 @@ async fn handle_put(request: Request) -> Response {
     return response;
 }
 
-/// Handles HTTP PATCH requests. Currently, it responds with a `MethodNotAllowed`
-/// HTTP status code, as this method is not implemented.
-///
-/// # Arguments
-/// - `request`: The HTTP PATCH request to process.
-///
-/// # Returns
-/// A `Response` with a `MethodNotAllowed` status.
-async fn handle_patch(request: Request) -> Response {
+async fn handle_patch(request: Request, state: Arc<Mutex<SharedState>>) -> Response {
     info!("PATCH {} status 404", request.uri);
     let response = Response::default()
         .await
@@ -294,16 +262,7 @@ async fn handle_patch(request: Request) -> Response {
     return response;
 }
 
-/// Processes HTTP DELETE requests to remove specified files if the user
-/// is authenticated via a valid session cookie.
-///
-/// # Arguments
-/// - `request`: The HTTP DELETE request, containing the file information and session.
-/// - `logger`: A thread-safe logger to track errors and actions.
-///
-/// # Returns
-/// A `Response` indicating success or failure of the file deletion process.
-async fn handle_delete(request: Request) -> Response {
+async fn handle_delete(request: Request, state: Arc<Mutex<SharedState>>) -> Response {
     let response = Response::default()
         .await
         .compression(request.is_compression_supported())
@@ -374,30 +333,21 @@ async fn handle_delete(request: Request) -> Response {
         .code(HttpCode::BadRequest);
 }
 
-/// Inserts a user into the database.
-///
-/// Hashes the user's password using Argon2, then appends the user's details
-/// (username, hashed password, session ID) to the `users.txt` file.
-///
-/// # Arguments
-/// - `username`: The username of the new user.
-/// - `password`: The password of the new user.
-/// - `session`: A unique session ID for the user.
-///
-/// # Returns
-/// - `Ok(())` if the operation is successful.
-/// - `Err(ErrorType)` if an error occurs.
-async fn insert_user(username: String, password: String, session: String) -> Result<(), ErrorType> {
+async fn insert_user(
+    username: String,
+    password: String,
+    session: String,
+) -> Result<(), Box<dyn std::error::Error>> {
     let password = password.as_bytes();
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
     let hash = match argon2.hash_password(&password, salt.as_salt()) {
         Ok(hash) => hash,
         Err(_) => {
-            error!("Failed to create new user");
-            return Err(ErrorType::InternalServerError(String::from(
+            error!(target: "error_logger","Failed to create new user");
+            return Err(Box::new(ErrorType::InternalServerError(String::from(
                 "Problem occured when creating password",
-            )));
+            ))));
         }
     };
 
@@ -415,10 +365,10 @@ async fn insert_user(username: String, password: String, session: String) -> Res
     match file.write(&file_input).await {
         Ok(_) => (),
         Err(_) => {
-            error!("Failed to write to database");
-            return Err(ErrorType::InternalServerError(String::from(
+            error!(target:"error_logger","Failed to write to database");
+            return Err(Box::new(ErrorType::InternalServerError(String::from(
                 "Problem occured when writing user to db",
-            )));
+            ))));
         }
     };
 
@@ -440,19 +390,17 @@ async fn insert_user(username: String, password: String, session: String) -> Res
 fn validate_password(password: &str, hashed_password: &str) -> Result<bool, ErrorType> {
     let argon2 = Argon2::default();
 
-    // Parse the hashed password
     let parsed_hash = PasswordHash::new(hashed_password).map_err(|_| {
-        error!("Failed to validated hashed password");
+        error!(target: "error_logger","Failed to validated hashed password");
         ErrorType::InternalServerError(String::from(
             "Problem occurred when validating the password",
         ))
     })?;
 
-    // Verify the password against the hashed password
     match argon2.verify_password(password.as_bytes(), &parsed_hash) {
         Ok(_) => Ok(true),
         Err(_) => {
-            error!("Login attempt failed due to incorrect password");
+            error!(target: "error_logger","Login attempt failed due to incorrect password");
             return Err(ErrorType::BadRequest(String::from("Incorrect Password")));
         }
     }
