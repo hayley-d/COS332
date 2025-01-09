@@ -1,4 +1,11 @@
 # Roadmap for HTTP/2 Server
+# Dependancies
+- Install redis (sudo apt install redis/sudo dnf install redis)
+- start the redis server(redis-server) (starts the server on 127.0.0.1:6379)
+- stop the redis server with redis-cli shutdown
+- test the redis instance wtih redis-cli ping
+
+
 ## Additional Features
 - gzip compression
 - TLS
@@ -10,4 +17,4 @@
 - Upgrade header (websockets)
 - cache support (Redis) response caching
 - Metrics and logging: Include Prometheus metrics or structured logging
-- Security: Implement DDoS protection (Rate limiting, IP blacklisting)
+- Security: Implement DDoS protection (Rate limiting, IP bla:cklisting)
