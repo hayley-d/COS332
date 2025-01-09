@@ -1,22 +1,20 @@
+use colored::Colorize;
+use dotenv::dotenv;
+use log::{error, info};
 use std::env;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-
-use colored::Colorize;
-use log::{error, info};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::process::Child;
 use tokio::sync::{Mutex, Notify, Semaphore};
 use tokio::time::timeout;
+use tokio_postgres::NoTls;
 use tokio_rustls::server::TlsStream;
 use tokio_rustls::TlsAcceptor;
 
-use crate::redis_connection::{
-    get_cached_content, read_and_cache_page, set_up_redis, start_redis_server, stop_redis_server,
-};
+use crate::redis_connection::{get_cached_content, read_and_cache_page, set_up_redis};
 use crate::response::Response;
 use crate::socket::connection::{get_listener, load_tls_config};
 use crate::{handle_response, Clock, Request};
@@ -50,7 +48,7 @@ impl SharedState {
 }
 
 pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
-    let redis_child: Child = start_redis_server().await;
+    //let redis_child: Child = start_redis_server().await;
 
     let state: Arc<Mutex<SharedState>> = Arc::new(Mutex::new(SharedState::new(
         match set_up_redis() {
@@ -59,13 +57,8 @@ pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
         },
         Clock::new(),
     )));
+
     println!("{}{}", ">> ".red().bold(), "Redis working: ".cyan(),);
-
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .expect("Failed to install rustls crypto provider");
-
-    log4rs::init_file("log4rs.yaml", Default::default()).unwrap();
 
     let port: u16 = match env::args()
         .nth(1)
@@ -76,11 +69,48 @@ pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
         Err(_) => DEFAULT_PORT,
     };
 
+    match dotenv() {
+        Ok(_) => (),
+        Err(e) => {
+            eprintln!("dotenv error: {:?}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let database_url = match env::var("DATABASE_URL") {
+        Ok(u) => u,
+        Err(e) => {
+            eprintln!("DATABASE_URL must be set in .env file: {:?}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let (client, connection) = match tokio_postgres::connect(&database_url, NoTls).await {
+        Ok((c, con)) => (c, con),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            std::process::exit(1);
+        }
+    };
+
+    if let Err(e) = connection.await {
+        eprintln!("Connection error: {}", e);
+        std::process::exit(1);
+    } else {
+        println!("Connected to PostgreSQL");
+    }
+
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+
+    log4rs::init_file("log4rs.yaml", Default::default()).unwrap();
+
     print_server_info(port);
 
     info!(target: "request_logger","Server Started");
     let _ = start_server(port, state).await;
-    let _ = stop_redis_server(redis_child).await;
+    //let _ = stop_redis_server(redis_child).await;
     Ok(())
 }
 
