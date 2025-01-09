@@ -40,12 +40,12 @@ impl SharedState {
         self.clock.increment_time()
     }
 
-    pub async fn get_cached_content(&mut self, path: PathBuf) -> Option<Vec<u8>> {
-        get_cached_content(&mut self.redis_connection, path).await
+    pub async fn get_cached_content(&mut self, route_name: &str) -> Option<Vec<u8>> {
+        get_cached_content(&mut self.redis_connection, route_name).await
     }
 
-    pub async fn read_and_cache_page(&mut self, path: PathBuf) -> Vec<u8> {
-        read_and_cache_page(&mut self.redis_connection, path).await
+    pub async fn read_and_cache_page(&mut self, path: &PathBuf, route_name: &str) -> Vec<u8> {
+        read_and_cache_page(&mut self.redis_connection, path, route_name).await
     }
 }
 
@@ -222,7 +222,7 @@ async fn handle_connection(
             return Ok(());
         }
 
-        let mut response: Response = handle_response(request).await;
+        let mut response: Response = handle_response(request, state.clone()).await;
 
         stream.write_all(&response.to_bytes()).await?;
         stream.flush().await?;

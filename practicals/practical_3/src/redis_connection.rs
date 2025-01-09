@@ -41,7 +41,8 @@ pub fn set_up_redis() -> Result<redis::Connection, Box<dyn std::error::Error>> {
 // caches a files content and returns the string
 pub async fn read_and_cache_page(
     redis_connection: &mut redis::Connection,
-    mut path: PathBuf,
+    path: &PathBuf,
+    route_name: &str,
 ) -> Vec<u8> {
     let content: String = match fs::read_to_string(path.clone()).await {
         Ok(content) => content,
@@ -51,15 +52,15 @@ pub async fn read_and_cache_page(
     };
 
     // set for 10 minuets
-    let _: () = redis_connection.set_ex(path.pop(), &content, 600).unwrap();
+    let _: () = redis_connection.set_ex(route_name, &content, 600).unwrap();
     return content.as_bytes().to_vec();
 }
 
 pub async fn get_cached_content(
     redis_connection: &mut redis::Connection,
-    mut path: PathBuf,
+    route_name: &str,
 ) -> Option<Vec<u8>> {
-    match redis_connection.get::<_, String>(path.pop()) {
+    match redis_connection.get::<_, String>(route_name) {
         Ok(content) => Some(content.as_bytes().to_vec()),
         Err(_) => None,
     }

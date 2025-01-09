@@ -1,4 +1,6 @@
+use crate::redis_connection::{get_cached_content, read_and_cache_page};
 use crate::response::{MyDefault, Response};
+use crate::server::SharedState;
 use crate::{ContentType, ErrorType, HttpCode, HttpMethod, Request};
 use argon2::password_hash::SaltString;
 use argon2::PasswordHash;
@@ -8,10 +10,13 @@ use log::{error, info};
 use rand::rngs::OsRng;
 use rand::Rng;
 use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::sync::Mutex;
 
 /// Reads the contents of a file asynchronously and returns its data as bytes.
 ///
@@ -31,54 +36,54 @@ pub async fn read_file_to_bytes(path: &str) -> Vec<u8> {
     return buffer;
 }
 
-/// Handles incoming HTTP requests by delegating to specific handlers
-/// based on the HTTP method.
-///
-/// # Arguments
-/// - `request`: The HTTP request to be processed.
-/// - `logger`: A thread-safe `Logger` instance for recording log entries.
-///
-/// # Returns
-/// A `Response` that corresponds to the processed request.
-pub async fn handle_response(request: Request) -> Response {
+async fn get_bytes(
+    state: Arc<Mutex<SharedState>>,
+    file_path: PathBuf,
+    route_name: &str,
+) -> Vec<u8> {
+    return match state.lock().await.get_cached_content(route_name).await {
+        Some(b) => b,
+        None => {
+            state
+                .lock()
+                .await
+                .read_and_cache_page(&file_path, route_name)
+                .await
+        }
+    };
+}
+
+/// Entry point into the REST API
+pub async fn handle_response(request: Request, state: Arc<Mutex<SharedState>>) -> Response {
     match request.method {
-        HttpMethod::GET => handle_get(request).await,
-        HttpMethod::POST => handle_post(request).await,
-        HttpMethod::PUT => handle_put(request).await,
-        HttpMethod::PATCH => handle_patch(request).await,
-        HttpMethod::DELETE => handle_delete(request).await,
+        HttpMethod::GET => handle_get(request, state).await,
+        HttpMethod::POST => handle_post(request, state).await,
+        HttpMethod::PUT => handle_put(request, state).await,
+        HttpMethod::PATCH => handle_patch(request, state).await,
+        HttpMethod::DELETE => handle_delete(request, state).await,
     }
 }
 
-/// Processes HTTP GET requests and returns an appropriate response.
-///
-/// # Arguments
-/// - `request`: The HTTP GET request to process.
-/// - `logger`: A shared logger instance to track activity.
-///
-/// # Returns
-/// A `Response` specific to the GET request, such as HTML content
-/// or an error response if applicable.
-async fn handle_get(request: Request) -> Response {
+async fn handle_get(request: Request, state: Arc<Mutex<SharedState>>) -> Response {
     let mut response = Response::default()
         .await
         .compression(request.is_compression_supported());
 
     if request.uri == "/" {
-        // Add Response Body
+        let bytes = get_bytes(state, PathBuf::from(r"static/index.html"), "/").await;
+
         info!("GET / from status 200");
-        response.add_body(read_file_to_bytes("static/index.html").await);
-    } else if request.uri == "/hayley" {
-        thread::sleep(Duration::from_secs(5));
-        info!("GET /hayley status 200");
-        response.add_body(read_file_to_bytes("static/index.html").await);
+        response.add_body(bytes);
     } else if request.uri == "/home" {
+        let bytes = get_bytes(state, PathBuf::from(r"static/home.html"), "/home").await;
+
         info!("GET /home status: 200");
-        response.add_body(read_file_to_bytes("static/home.html").await);
+        response.add_body(bytes);
     } else if request.uri == "/coffee" {
         info!("GET /coffee status: 418");
+        let bytes = get_bytes(state, PathBuf::from(r"static/teapot.html"), "/coffee").await;
         response.add_code(HttpCode::Teapot);
-        response.add_body(read_file_to_bytes("static/teapot.html").await);
+        response.add_body(bytes);
     } else {
         // Error
         error!("Failed to serve request GET {}", request.uri);
