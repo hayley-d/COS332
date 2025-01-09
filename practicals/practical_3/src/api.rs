@@ -82,12 +82,13 @@ async fn handle_get(request: Request, state: Arc<Mutex<SharedState>>) -> Respons
     } else if request.uri == "/coffee" {
         info!("GET /coffee status: 418");
         let bytes = get_bytes(state, PathBuf::from(r"static/teapot.html"), "/coffee").await;
-        response.add_code(HttpCode::Teapot);
-        response.add_body(bytes);
+        return response.code(HttpCode::Teapot).body(bytes);
     } else {
-        // Error
-        error!("Failed to serve request GET {}", request.uri);
-        info!("GET {} status: 404", request.uri);
+        let bytes = get_bytes(state, PathBuf::from(r"static/404.html"), "/404").await;
+
+        error!(target: "error_logger","Failed to serve request GET {}", request.uri);
+        info!(target: "request_logger","GET {} status: 404", request.uri);
+
         println!(
             "{} {} {} {}",
             ">>".red().bold(),
@@ -96,9 +97,9 @@ async fn handle_get(request: Request, state: Arc<Mutex<SharedState>>) -> Respons
             request.uri.cyan()
         );
         return response
-            .body(String::from("404: Invalid route").into())
+            .code(HttpCode::BadRequest)
             .content_type(ContentType::Text)
-            .code(HttpCode::BadRequest);
+            .body(bytes);
     }
     return response;
 }
