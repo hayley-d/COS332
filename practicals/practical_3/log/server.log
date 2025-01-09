@@ -136,3 +136,14 @@
 2025-01-08 18:03:02.468 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:79 - GET /coffee status: 418
 2025-01-08 18:03:02.495 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:288 - TLS handshake successful with 127.0.0.1:57558
 2025-01-08 18:03:02.496 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:69 - GET / from status 200
+2025-01-08 18:04:02.163 [INFO] main src/main.rs:23 - Server Started
+2025-01-08 18:04:02.163 [INFO] main src/socket.rs:80 - Server started listening on port 7878
+2025-01-08 18:04:02.164 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:109 - TLS certificate and keys configured
+2025-01-08 18:04:06.734 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:288 - TLS handshake successful with 127.0.0.1:39332
+2025-01-08 18:04:06.735 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:79 - GET /coffee status: 418
+2025-01-08 18:04:06.759 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:288 - TLS handshake successful with 127.0.0.1:39344
+2025-01-08 18:04:06.759 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:69 - GET / from status 200
+2025-01-08 18:04:11.868 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:288 - TLS handshake successful with 127.0.0.1:39368
+2025-01-08 18:04:11.869 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:69 - GET / from status 200
+2025-01-08 18:04:11.897 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:288 - TLS handshake successful with 127.0.0.1:39382
+2025-01-08 18:04:11.897 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:69 - GET / from status 200
