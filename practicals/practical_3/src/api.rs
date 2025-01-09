@@ -104,16 +104,6 @@ async fn handle_get(request: Request, state: Arc<Mutex<SharedState>>) -> Respons
     return response;
 }
 
-/// Handles HTTP POST requests for various operations, such as user
-/// signup and login.
-///
-/// # Arguments
-/// - `request`: The HTTP POST request containing the payload.
-/// - `logger`: A thread-safe logger to capture logs during processing.
-///
-/// # Returns
-/// A `Response` corresponding to the POST request, with outcomes like
-/// successful account creation, login confirmation, or error handling.
 async fn handle_post(request: Request) -> Response {
     let mut response = Response::default()
         .await
