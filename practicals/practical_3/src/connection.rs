@@ -2,6 +2,7 @@ pub mod connections {
     #![allow(dead_code, unused_variables)]
 
     use std::net::SocketAddr;
+    use std::path::PathBuf;
     use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
@@ -11,8 +12,9 @@ pub mod connections {
     use tokio::sync::{broadcast, Mutex, Semaphore};
     use tokio::{fs, time};
 
+    use crate::redis_connection::{get_cached_content, read_and_cache_page};
     use crate::shutdown::Message;
-    use crate::ErrorType;
+    use crate::{Clock, ErrorType};
 
     const MAX_CONNECTIONS: usize = 5;
 
@@ -28,6 +30,35 @@ pub mod connections {
         pub stream: TcpStream,
         pub addr: SocketAddr,
         pub shutdown_rx: broadcast::Receiver<Message>,
+    }
+
+    pub struct SharedState {
+        pub redis_connection: Arc<Mutex<redis::aio::MultiplexedConnection>>,
+        pub clock: Arc<Mutex<Clock>>,
+    }
+
+    impl SharedState {
+        pub fn new(
+            redis_connection: Arc<Mutex<redis::aio::MultiplexedConnection>>,
+            clock: Arc<Mutex<Clock>>,
+        ) -> Self {
+            return SharedState {
+                redis_connection,
+                clock,
+            };
+        }
+
+        pub async fn increment_clock(&mut self) -> i64 {
+            self.clock.lock().await.increment_time()
+        }
+
+        pub async fn get_cached_content(&mut self, path: PathBuf) -> Option<Vec<u8>> {
+            get_cached_content(self.redis_connection.clone(), path).await
+        }
+
+        pub async fn read_and_cache_page(&mut self, path: PathBuf) -> Vec<u8> {
+            read_and_cache_page(self.redis_connection.clone(), path).await
+        }
     }
 
     pub async fn handle_connection(stream: &mut TcpStream) -> Result<(), ErrorType> {

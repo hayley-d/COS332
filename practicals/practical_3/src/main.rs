@@ -1,5 +1,6 @@
 use colored::Colorize;
 use log::info;
+use practical_3::redis_connection::set_up_redis;
 use practical_3::socket::connection::start_server;
 use std::env;
 
@@ -7,6 +8,10 @@ const DEFAULT_PORT: u16 = 7878;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+
     log4rs::init_file("log4rs.yaml", Default::default()).unwrap();
 
     let port: u16 = match env::args()
@@ -28,6 +33,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn print_server_info(port: u16) {
     println!("{}", "Server started:".cyan());
+
+    match set_up_redis() {
+        Ok(7) => println!("{}{}", ">> ".red().bold(), "Redis working: ".cyan(),),
+        _ => {
+            println!("{}", ">> Redis set up failed".red().bold());
+            std::process::exit(1);
+        }
+    }
+
     println!(
         "{}{}{}",
         ">> ".red().bold(),

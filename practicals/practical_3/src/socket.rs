@@ -2,6 +2,8 @@
 /// It utilizes the `socket2` crate for advanced socket operations and integrates with
 /// Tokio's asynchronous networking capabilities.
 pub mod connection {
+    use crate::response::Response;
+    use crate::{handle_response, Clock, Request};
     use libc::*;
     use libc::{setsockopt, socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR};
     use log::{error, info};
@@ -22,9 +24,6 @@ pub mod connection {
     use tokio::time::timeout;
     use tokio_rustls::server::TlsStream;
     use tokio_rustls::TlsAcceptor;
-
-    use crate::response::Response;
-    use crate::{handle_response, Clock, Request};
 
     fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
         unsafe {

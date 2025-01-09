@@ -147,3 +147,8 @@
 2025-01-08 18:04:11.869 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:69 - GET / from status 200
 2025-01-08 18:04:11.897 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:288 - TLS handshake successful with 127.0.0.1:39382
 2025-01-08 18:04:11.897 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:69 - GET / from status 200
+2025-01-09 02:36:30.777 [INFO] main src/main.rs:32 - Server Started
+2025-01-09 02:36:30.777 [INFO] main src/socket.rs:81 - Server started listening on port 7878
+2025-01-09 02:37:36.712 [INFO] main src/main.rs:36 - Server Started
+2025-01-09 02:37:36.712 [INFO] main src/socket.rs:81 - Server started listening on port 7878
+2025-01-09 02:37:36.712 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:110 - TLS certificate and keys configured
