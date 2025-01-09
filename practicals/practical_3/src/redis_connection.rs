@@ -1,7 +1,36 @@
 use std::path::PathBuf;
 
+use log::{error, info};
 use redis::Commands;
 use tokio::fs;
+use tokio::process::{Child, Command};
+
+pub async fn start_redis_server() -> Child {
+    return match Command::new("redis-server").spawn() {
+        Ok(child) => {
+            println!("Redis server started");
+            info!("Redis server started");
+            child
+        }
+        _ => {
+            eprintln!("Problem starting redis server");
+            error!(target:"error_logger","Failed to start Redis server");
+            std::process::exit(1);
+        }
+    };
+}
+
+pub async fn stop_redis_server(mut redis_child: Child) -> Result<(), Box<dyn std::error::Error>> {
+    if let Err(e) = redis_child.kill().await {
+        eprintln!("Failed to stop redis server");
+        return Err(Box::new(e));
+    }
+
+    println!("Redis server stopped");
+    info!("Redis server stopped");
+
+    Ok(())
+}
 
 /// Returns a connection to the redis instance
 pub fn set_up_redis() -> Result<redis::Connection, Box<dyn std::error::Error>> {

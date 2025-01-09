@@ -1,20 +1,27 @@
+use std::env;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use colored::Colorize;
 use log::{error, info};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
+use tokio::process::Child;
 use tokio::sync::{Mutex, Notify, Semaphore};
 use tokio::time::timeout;
 use tokio_rustls::server::TlsStream;
 use tokio_rustls::TlsAcceptor;
 
-use crate::redis_connection::{get_cached_content, read_and_cache_page, set_up_redis};
+use crate::redis_connection::{
+    get_cached_content, read_and_cache_page, set_up_redis, start_redis_server, stop_redis_server,
+};
 use crate::response::Response;
-use crate::socket::connection::get_listener;
+use crate::socket::connection::{get_listener, load_tls_config};
 use crate::{handle_response, Clock, Request};
+
+const DEFAULT_PORT: u16 = 7878;
 
 pub struct SharedState {
     pub redis_connection: redis::Connection,
@@ -43,18 +50,41 @@ impl SharedState {
 }
 
 pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
-    let state: SharedState = SharedState::new(
+    let redis_child: Child = start_redis_server().await;
+
+    let state: Arc<Mutex<SharedState>> = Arc::new(Mutex::new(SharedState::new(
         match set_up_redis() {
             Ok(c) => c,
             _ => std::process::exit(1),
         },
         Clock::new(),
-    );
+    )));
+    println!("{}{}", ">> ".red().bold(), "Redis working: ".cyan(),);
 
-    todo!()
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+
+    log4rs::init_file("log4rs.yaml", Default::default()).unwrap();
+
+    let port: u16 = match env::args()
+        .nth(1)
+        .unwrap_or_else(|| DEFAULT_PORT.to_string())
+        .parse()
+    {
+        Ok(p) => p,
+        Err(_) => DEFAULT_PORT,
+    };
+
+    print_server_info(port);
+
+    info!(target: "request_logger","Server Started");
+    let _ = start_server(port, state).await;
+    let _ = stop_redis_server(redis_child).await;
+    Ok(())
 }
 
-pub async fn start_server(
+async fn start_server(
     port: u16,
     state: Arc<Mutex<SharedState>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -198,4 +228,42 @@ async fn handle_connection(
         stream.flush().await?;
         return Ok(());
     }
+}
+
+fn print_server_info(port: u16) {
+    println!("{}", "Server started:".cyan());
+
+    println!(
+        "{}{}{}",
+        ">> ".red().bold(),
+        "address: ".cyan(),
+        "127.0.0.1".red().bold()
+    );
+
+    println!(
+        "{}{}{}",
+        ">> ".red().bold(),
+        "port: ".cyan(),
+        port.to_string().red().bold()
+    );
+
+    println!(
+        "{}{}{}",
+        ">> ".red().bold(),
+        "HTTP/1.1: ".cyan(),
+        "true".red().bold()
+    );
+
+    println!(
+        "{}{}{}",
+        ">> ".red().bold(),
+        "shutdown: ".cyan(),
+        "ctrl C".red().bold()
+    );
+
+    println!(
+        "{}{}\n",
+        "Server has launched from http://127.0.0.1:".red().bold(),
+        port.to_string().red().bold()
+    );
 }
