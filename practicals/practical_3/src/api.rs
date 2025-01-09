@@ -18,16 +18,6 @@ use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::Mutex;
 
-/// Reads the contents of a file asynchronously and returns its data as bytes.
-///
-/// # Arguments
-/// - `path`: A string slice representing the file path.
-///
-/// # Returns
-/// A `Vec<u8>` containing the file's contents.
-///
-/// # Panics
-/// Panics if the file cannot be accessed, or if the read operation fails.
 pub async fn read_file_to_bytes(path: &str) -> Vec<u8> {
     let metadata = fs::metadata(path).await.unwrap();
     let mut file = File::open(path).await.unwrap();
@@ -72,20 +62,18 @@ async fn handle_get(request: Request, state: Arc<Mutex<SharedState>>) -> Respons
     if request.uri == "/" {
         let bytes = get_bytes(state, PathBuf::from(r"static/index.html"), "/").await;
 
-        info!("GET / from status 200");
+        info!(target: "request_logger","GET / from status 200");
         response.add_body(bytes);
     } else if request.uri == "/home" {
         let bytes = get_bytes(state, PathBuf::from(r"static/home.html"), "/home").await;
-
-        info!("GET /home status: 200");
+        info!(target: "request_logger","GET /home status: 200");
         response.add_body(bytes);
     } else if request.uri == "/coffee" {
-        info!("GET /coffee status: 418");
+        info!(target: "request_logger","GET /coffee status: 418");
         let bytes = get_bytes(state, PathBuf::from(r"static/teapot.html"), "/coffee").await;
         return response.code(HttpCode::Teapot).body(bytes);
     } else {
         let bytes = get_bytes(state, PathBuf::from(r"static/404.html"), "/404").await;
-
         error!(target: "error_logger","Failed to serve request GET {}", request.uri);
         info!(target: "request_logger","GET {} status: 404", request.uri);
 
@@ -104,7 +92,7 @@ async fn handle_get(request: Request, state: Arc<Mutex<SharedState>>) -> Respons
     return response;
 }
 
-async fn handle_post(request: Request) -> Response {
+async fn handle_post(request: Request, state: Arc<Mutex<SharedState>>) -> Response {
     let mut response = Response::default()
         .await
         .compression(request.is_compression_supported())
