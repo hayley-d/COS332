@@ -8,6 +8,7 @@ use log::{error, info};
 use rand::rngs::OsRng;
 use std::env;
 use std::path::PathBuf;
+use std::str::from_utf8;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -23,7 +24,7 @@ use uuid::Uuid;
 use crate::redis_connection::{get_cached_content, read_and_cache_page, set_up_redis};
 use crate::response::Response;
 use crate::socket::connection::{get_listener, load_tls_config};
-use crate::{handle_response, Clock, Request};
+use crate::{handle_response, Clock, ErrorType, Request};
 
 const DEFAULT_PORT: u16 = 7878;
 
@@ -58,26 +59,43 @@ impl SharedState {
         &mut self,
         username: String,
         password: String,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    ) -> Result<Uuid, Box<dyn std::error::Error>> {
         let hash = Self::hash_password(&password).unwrap();
         let session_id = Uuid::new_v4();
 
         let query = self
             .client
-            .prepare("INSERT INTO users (username,password,session_id) VALUES ($1,$2,$3) RETURNING session_id")
+            .prepare("INSERT INTO users (username, password, session_id) VALUES ($1,$2,$3);")
             .await?;
 
-        let row = self
+        let _ = self
             .client
-            .query_one(&query, &[&username, &hash, &session_id])
+            .execute(&query, &[&username, &hash, &session_id])
             .await?;
-
-        let session_id: String = row.get(0);
 
         return Ok(session_id);
     }
 
-    pub async fn find_user(&mut self,username: String) -> {
+    pub async fn find_user(
+        &mut self,
+        username: String,
+    ) -> Result<Uuid, Box<dyn std::error::Error>> {
+        let query = self
+            .client
+            .prepare("SELECT * FROM users WHERE username = $1")
+            .await?;
+
+        let row = self.client.query_one(&query, &[&username]).await?;
+
+        if row.is_empty() {
+            return Err(Box::new(ErrorType::ReadError(format!(
+                "Failed to find user"
+            ))));
+        }
+
+        let session_id: Uuid = row.get(4);
+
+        return Ok(session_id);
     }
 
     fn hash_password(password: &str) -> Result<String, Box<dyn std::error::Error>> {
@@ -288,6 +306,8 @@ async fn handle_connection(
             println!("Client Disconnected");
             return Ok(());
         }
+
+        println!("{}", from_utf8(&buffer[..bytes_read]).unwrap());
 
         let request: Request = match Request::new(
             &buffer[..bytes_read],

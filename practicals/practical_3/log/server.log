@@ -152,3 +152,24 @@
 2025-01-09 02:37:36.712 [INFO] main src/main.rs:36 - Server Started
 2025-01-09 02:37:36.712 [INFO] main src/socket.rs:81 - Server started listening on port 7878
 2025-01-09 02:37:36.712 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:110 - TLS certificate and keys configured
+2025-01-10 03:11:56.999 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:188 - Server Started
+2025-01-10 03:11:57.019 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-01-10 03:11:57.020 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-10 03:16:07.366 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:189 - Server Started
+2025-01-10 03:16:07.366 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-01-10 03:16:07.367 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-10 03:18:05.980 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:273 - TLS handshake successful with 127.0.0.1:53008
+2025-01-10 03:18:05.981 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:277 - Failed to parse invalid JSON
+2025-01-10 03:19:13.103 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:273 - TLS handshake successful with 127.0.0.1:40154
+2025-01-10 03:19:13.104 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:90 - POST /signup from
+2025-01-10 03:19:52.893 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:189 - Server Started
+2025-01-10 03:19:52.894 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-01-10 03:19:52.894 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-10 03:20:27.870 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:273 - TLS handshake successful with 127.0.0.1:35116
+2025-01-10 03:20:27.871 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:142 - POST /login from 
+2025-01-10 03:20:27.871 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:175 - Failed to find user account with username testuser
+2025-01-10 03:25:12.551 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:189 - Server Started
+2025-01-10 03:25:12.552 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-01-10 03:25:12.552 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-10 03:25:15.890 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:273 - TLS handshake successful with 127.0.0.1:60358
+2025-01-10 03:25:15.891 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:142 - POST /login from 

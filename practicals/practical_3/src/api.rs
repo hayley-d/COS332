@@ -14,6 +14,7 @@ use std::sync::Arc;
 use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::Mutex;
+use uuid::Uuid;
 
 pub async fn read_file_to_bytes(path: &str) -> Vec<u8> {
     let metadata = fs::metadata(path).await.unwrap();
@@ -103,19 +104,18 @@ async fn handle_post(request: Request, state: Arc<Mutex<SharedState>>) -> Respon
                     .code(HttpCode::BadRequest);
             }
         };
-        let session_id: String = generate_session_id();
 
         // insert the new user into the file
-        match insert_user(
-            user["username"].clone(),
-            user["password"].clone(),
-            session_id.clone(),
-        )
-        .await
+        let session_id: Uuid = match state
+            .lock()
+            .await
+            .add_user(user["username"].clone(), user["password"].clone())
+            .await
         {
-            Ok(_) => (),
+            Ok(s) => s,
             Err(_) => {
-                error!("Failed to insert user into the database");
+                error!(target: "error_logger","Failed to insert user into the database");
+
                 println!(
                     "{} {} {} {}",
                     ">>".red().bold(),
@@ -123,11 +123,12 @@ async fn handle_post(request: Request, state: Arc<Mutex<SharedState>>) -> Respon
                     request.method.to_string().magenta(),
                     request.uri.cyan()
                 );
+
                 return response
                     .body(String::from("Problem occured when attempting to add new user.").into())
                     .code(HttpCode::InternalServerError);
             }
-        }
+        };
 
         response.add_header(
             String::from("Set-Cookie"),
@@ -159,22 +160,16 @@ async fn handle_post(request: Request, state: Arc<Mutex<SharedState>>) -> Respon
         };
 
         let input_username: &str = &user["username"];
-        let input_password: &str = &user["password"];
 
-        let contents: String = fs::read_to_string("static/users.txt").await.unwrap();
-
-        let user_values: String = match contents
-            .lines()
-            .filter(|l| l.contains(input_username))
-            .collect::<Vec<&str>>()
-            .get(0)
+        let session_id: Uuid = match state
+            .lock()
+            .await
+            .find_user(input_username.to_string())
+            .await
         {
-            Some(l) => l.to_string(),
-            None => {
-                error!(
-                    "Failed to find user account with username {}",
-                    input_username
-                );
+            Ok(s) => s,
+            Err(_) => {
+                error!(target:"error_logger","Failed to find the user");
                 println!(
                     "{} {} {} {}",
                     ">>".red().bold(),
@@ -189,49 +184,14 @@ async fn handle_post(request: Request, state: Arc<Mutex<SharedState>>) -> Respon
             }
         };
 
-        let user_values: Vec<&str> = user_values.split('|').collect();
+        response.add_header(
+            String::from("Set-Cookie"),
+            format!("session={}; HttpOnly", session_id),
+        );
 
-        if user_values.len() != 3 {
-            error!("Failed to find user account from IP address");
-            return response
-                .body(String::from("No user exists with the provided details.").into())
-                .code(HttpCode::BadRequest);
-        }
-
-        if user_values[0] == input_username {
-            match validate_password(input_password, user_values[1]) {
-                Ok(v) if v == true => (),
-                Ok(_) => {
-                    error!("Failed to login user with incorrect password");
-                    println!(
-                        "{} {} {}",
-                        ">>".red().bold(),
-                        "Attempt to login with incorrect password for".red(),
-                        input_username.cyan()
-                    );
-                    return response
-                        .body(String::from("Incorrect Password.").into())
-                        .code(HttpCode::BadRequest);
-                }
-                Err(_) => {
-                    error!("Failed to validate password");
-                    return response
-                        .body(String::from("Problem occured when validating password.").into())
-                        .code(HttpCode::InternalServerError);
-                }
-            }
-
-            response.add_header(
-                String::from("Set-Cookie"),
-                format!("session={}; HttpOnly", user_values[2]),
-            );
-
-            return response
-                .body(String::from("Authentification successful!").into())
-                .code(HttpCode::Ok);
-        }
-
-        //}
+        return response
+            .body(String::from("Authentification successful!").into())
+            .code(HttpCode::Ok);
     }
     error!("Failed to parse invalid POST request");
     return response
