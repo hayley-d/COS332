@@ -262,10 +262,10 @@ impl HttpMethod {
             HttpMethod::POST
         } else if method.to_uppercase().contains("PUT") {
             HttpMethod::PUT
-        } else if method.to_uppercase().contains("PATCH") {
-            HttpMethod::PATCH
-        } else {
+        } else if method.to_uppercase().contains("DELETE") {
             HttpMethod::DELETE
+        } else {
+            HttpMethod::PATCH
         }
     }
 }

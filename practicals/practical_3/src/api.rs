@@ -46,8 +46,8 @@ pub async fn handle_response(request: Request, state: Arc<Mutex<SharedState>>) -
     match request.method {
         HttpMethod::GET => handle_get(request, state).await,
         HttpMethod::POST => handle_post(request, state).await,
-        HttpMethod::PUT => handle_put(request, state).await,
-        HttpMethod::PATCH => handle_patch(request, state).await,
+        HttpMethod::PUT => handle_put(request).await,
+        HttpMethod::PATCH => handle_patch(request).await,
         HttpMethod::DELETE => handle_delete(request, state).await,
     }
 }
@@ -199,7 +199,7 @@ async fn handle_post(request: Request, state: Arc<Mutex<SharedState>>) -> Respon
         .code(HttpCode::BadRequest);
 }
 
-async fn handle_put(request: Request, state: Arc<Mutex<SharedState>>) -> Response {
+async fn handle_put(request: Request) -> Response {
     info!("{}", request);
 
     let response = Response::default()
@@ -211,7 +211,7 @@ async fn handle_put(request: Request, state: Arc<Mutex<SharedState>>) -> Respons
     return response;
 }
 
-async fn handle_patch(request: Request, state: Arc<Mutex<SharedState>>) -> Response {
+async fn handle_patch(request: Request) -> Response {
     info!("PATCH {} status 404", request.uri);
     let response = Response::default()
         .await
@@ -230,7 +230,7 @@ async fn handle_delete(request: Request, state: Arc<Mutex<SharedState>>) -> Resp
         .code(HttpCode::BadRequest)
         .content_type(ContentType::Text);
 
-    let file: HashMap<String, String> = match serde_json::from_str(&request.body) {
+    let username: HashMap<String, String> = match serde_json::from_str(&request.body) {
         Ok(u) => u,
         Err(_) => {
             error!("Failed to parse invalid JSON");
@@ -240,7 +240,7 @@ async fn handle_delete(request: Request, state: Arc<Mutex<SharedState>>) -> Resp
         }
     };
 
-    let file_name: &String = &file["file_name"];
+    let username: &String = &username["username"];
 
     let cookie_header: Vec<String> = request
         .headers
@@ -270,22 +270,30 @@ async fn handle_delete(request: Request, state: Arc<Mutex<SharedState>>) -> Resp
         }
     };
 
-    // cookie_value = session=sessionID
-    if verify_cookie(cookie_value).await {
-        // session has been verified process the delete
-        match fs::remove_file(file_name).await {
-            Ok(_) => {
-                return response
-                    .body(String::from("File successfully deleted.").into())
-                    .code(HttpCode::Ok);
-            }
-            Err(_) => {
-                error!("Failed to delete file that does not exist");
-                return response
-                    .body(String::from("Unable to delete file: File does not exist.").into())
-                    .code(HttpCode::BadRequest);
-            }
+    let session_id: Uuid = match state.lock().await.find_user(username.to_string()).await {
+        Ok(s) => s,
+        Err(_) => {
+            error!(target:"error_logger","Failed to find the user");
+            println!(
+                "{} {} {} {}",
+                ">>".red().bold(),
+                "User not found for".red(),
+                request.method.to_string().magenta(),
+                request.uri.cyan()
+            );
+            return response
+                .body(String::from("No user exists with the provided details.").into())
+                .code(HttpCode::BadRequest)
+                .content_type(ContentType::Text);
         }
+    };
+
+    // cookie_value = session=sessionID
+    if session_id.to_string() == cookie_value {
+        // session has been verified process the delete
+        return response
+            .body(String::from("File successfully deleted.").into())
+            .code(HttpCode::Ok);
     }
 
     return response
@@ -293,124 +301,8 @@ async fn handle_delete(request: Request, state: Arc<Mutex<SharedState>>) -> Resp
         .code(HttpCode::BadRequest);
 }
 
-async fn insert_user(
-    username: String,
-    password: String,
-    session: String,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let password = password.as_bytes();
-    let salt = SaltString::generate(&mut OsRng);
-    let argon2 = Argon2::default();
-    let hash = match argon2.hash_password(&password, salt.as_salt()) {
-        Ok(hash) => hash,
-        Err(_) => {
-            error!(target: "error_logger","Failed to create new user");
-            return Err(Box::new(ErrorType::InternalServerError(String::from(
-                "Problem occured when creating password",
-            ))));
-        }
-    };
-
-    let mut file_input: Vec<u8> = username.into_bytes();
-    file_input.push(b'|');
-    file_input.extend_from_slice(hash.to_string().as_bytes());
-    file_input.push(b'|');
-    file_input.extend_from_slice(session.as_bytes());
-    let mut file = OpenOptions::new()
-        .append(true)
-        .open("static/users.txt")
-        .await
-        .expect("cannot open file");
-
-    match file.write(&file_input).await {
-        Ok(_) => (),
-        Err(_) => {
-            error!(target:"error_logger","Failed to write to database");
-            return Err(Box::new(ErrorType::InternalServerError(String::from(
-                "Problem occured when writing user to db",
-            ))));
-        }
-    };
-
-    Ok(())
-}
-
-/// Validates a password against a hashed password.
-///
-/// Uses Argon2 to verify if the provided password matches the stored hash.
-///
-/// # Arguments
-/// - `password`: The plaintext password provided by the user.
-/// - `hashed_password`: The stored hashed password.
-///
-/// # Returns
-/// - `Ok(true)` if the password matches the hash.
-/// - `Ok(false)` if the password does not match the hash.
-/// - `Err(ErrorType)` if a validation error occurs.
-fn validate_password(password: &str, hashed_password: &str) -> Result<bool, ErrorType> {
-    let argon2 = Argon2::default();
-
-    let parsed_hash = PasswordHash::new(hashed_password).map_err(|_| {
-        error!(target: "error_logger","Failed to validated hashed password");
-        ErrorType::InternalServerError(String::from(
-            "Problem occurred when validating the password",
-        ))
-    })?;
-
-    match argon2.verify_password(password.as_bytes(), &parsed_hash) {
-        Ok(_) => Ok(true),
-        Err(_) => {
-            error!(target: "error_logger","Login attempt failed due to incorrect password");
-            return Err(ErrorType::BadRequest(String::from("Incorrect Password")));
-        }
-    }
-}
-
-/// Generates a random session ID.
-///
-/// # Returns
-/// - A `String` representing the session ID.
-fn generate_session_id() -> String {
-    let mut rng = rand::thread_rng();
-    (0..32)
-        .map(|_| rng.sample(rand::distributions::Alphanumeric) as char)
-        .collect()
-}
-
-/// Verifies the session cookie.
-///
-/// Reads the `users.txt` file to check if the provided session cookie matches an active session.
-///
-/// # Arguments
-/// - `cookie`: The session cookie to verify.
-///
-/// # Returns
-/// - `true` if the session is valid.
-/// - `false` otherwise.
-async fn verify_cookie(cookie: &str) -> bool {
-    if cookie.starts_with("session=") {
-        return match fs::read_to_string("static/users.txt").await {
-            Ok(f) => {
-                let cookie_value: &str = cookie.split('=').collect::<Vec<&str>>()[1];
-                f.contains(cookie_value)
-            }
-            Err(_) => false,
-        };
-    }
-    false
-}
-
 #[cfg(test)]
 mod tests {
-
-    use crate::api::verify_cookie;
-
-    #[tokio::test]
-    async fn test_verify_cookie() {
-        let cookie: String = String::from("session=sloth101");
-        let res = verify_cookie(&cookie).await;
-        assert_eq!(res, true);
-    }
 
     /*#[tokio::test]
     async fn test_signup() {
