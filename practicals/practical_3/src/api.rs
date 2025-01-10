@@ -1,18 +1,13 @@
 use crate::response::{MyDefault, Response};
 use crate::server::SharedState;
-use crate::{ContentType, ErrorType, HttpCode, HttpMethod, Request};
-use argon2::password_hash::SaltString;
-use argon2::PasswordHash;
-use argon2::{Argon2, PasswordHasher, PasswordVerifier};
+use crate::{ContentType, HttpCode, HttpMethod, Request};
 use colored::Colorize;
 use log::{error, info};
-use rand::rngs::OsRng;
-use rand::Rng;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::fs::{self, File, OpenOptions};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::fs::{self, File};
+use tokio::io::AsyncReadExt;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 

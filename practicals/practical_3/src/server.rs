@@ -111,7 +111,7 @@ impl SharedState {
         };
     }
 
-    fn validate_password(password: &str, hash: &str) -> Result<(), ()> {
+    /*fn validate_password(password: &str, hash: &str) -> Result<(), ()> {
         let parsed = match PasswordHash::new(hash) {
             Ok(p) => p,
             Err(_) => return Err(()),
@@ -121,7 +121,7 @@ impl SharedState {
             Ok(_) => Ok(()),
             Err(_) => Err(()),
         };
-    }
+    }*/
 }
 
 pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
