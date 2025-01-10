@@ -1,7 +1,6 @@
 use argon2::password_hash::SaltString;
-use argon2::PasswordHash;
-use argon2::{Argon2, PasswordHasher, PasswordVerifier};
-
+//use argon2::PasswordHash;
+use argon2::{Argon2, PasswordHasher /*, PasswordVerifier*/};
 use colored::Colorize;
 use dotenv::dotenv;
 use log::{error, info};
