@@ -115,6 +115,7 @@ mod tests {
     use std::str::FromStr;
 
     use chrono::Duration;
+    use tokio::task::JoinSet;
 
     use super::*;
 
@@ -192,6 +193,41 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_exact_window_boundary() {
+        let state = setup_state().await;
+        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+        let now = Utc::now();
+        let end_point = "/test";
+
+        for _ in 0..LIMIT {
+            let result = rate_limit(state.clone(), ip, end_point, now).await;
+            assert!(result.is_ok());
+        }
+
+        let later = now + WINDOW_SIZE;
+        assert!(rate_limit(state.clone(), ip, "/test", later).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_burst_traffic() {
+        let state = setup_state().await;
+        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+        let ip2 = IpAddr::from_str("127.0.0.2").unwrap();
+
+        let now = Utc::now();
+
+        for _ in 0..LIMIT {
+            assert!(rate_limit(state.clone(), ip, "/test", now).await.is_ok());
+            assert!(rate_limit(state.clone(), ip2, "/test", now).await.is_ok());
+        }
+
+        assert!(rate_limit(state.clone(), ip, "/test", now).await.is_err());
+        assert!(rate_limit(state.clone(), ip, "/test", now).await.is_err());
+        assert!(rate_limit(state.clone(), ip2, "/test", now).await.is_err());
+        assert!(rate_limit(state.clone(), ip2, "/test", now).await.is_err());
+    }
+
+    #[tokio::test]
     async fn test_invalid_endpoint() {
         let state = setup_state().await;
         let ip = IpAddr::from_str("127.0.0.1").unwrap();
@@ -234,5 +270,85 @@ mod tests {
         // Another IP should not affect the rate limit for the first IP
         let result = rate_limit(state.clone(), ip2, endpoint, timestamp).await;
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_under_limit() {
+        let state = setup_state().await;
+        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+        let now = Utc::now();
+
+        for _ in 0..(LIMIT - 1) {
+            assert!(rate_limit(state.clone(), ip, "/test", now).await.is_ok());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_multiple_ips_endpoints() {
+        let state = setup_state().await;
+        let ip1 = IpAddr::from_str("127.0.0.1").unwrap();
+        let ip2 = IpAddr::from_str("192.168.0.1").unwrap();
+        let now = Utc::now();
+
+        for _ in 0..LIMIT {
+            assert!(rate_limit(state.clone(), ip1, "/test", now).await.is_ok());
+            assert!(rate_limit(state.clone(), ip2, "/test", now).await.is_ok());
+        }
+
+        assert!(rate_limit(state.clone(), ip1, "/test", now).await.is_err());
+        assert!(rate_limit(state.clone(), ip2, "/test", now).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_sliding_window_precision() {
+        let state = setup_state().await;
+        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+        let now = Utc::now();
+
+        for i in 0..LIMIT {
+            let timestamp = now + chrono::Duration::milliseconds(i as i64 * 1000);
+            assert!(rate_limit(state.clone(), ip, "/test", timestamp)
+                .await
+                .is_ok());
+        }
+
+        let later = now + WINDOW_SIZE - chrono::Duration::milliseconds(1000);
+        assert!(rate_limit(state.clone(), ip, "/test", later).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_large_volume_stress() {
+        let state = setup_state().await;
+        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+        let now = Utc::now();
+
+        for _ in 0..10000 {
+            let result = rate_limit(state.clone(), ip, "/test", now).await;
+            if result.is_err() {
+                break;
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_requests() {
+        let state = setup_state().await;
+        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+
+        let mut tasks = JoinSet::new();
+
+        for _ in 0..LIMIT {
+            let clone_state = state.clone();
+            tasks.spawn(async move {
+                let _ = rate_limit(clone_state.clone(), ip.clone(), "/test", Utc::now()).await;
+            });
+        }
+
+        while let Some(res) = tasks.join_next().await {
+            assert!(res.is_ok());
+        }
+
+        let result = rate_limit(state, ip, "/test", Utc::now()).await;
+        assert!(result.is_err());
     }
 }
