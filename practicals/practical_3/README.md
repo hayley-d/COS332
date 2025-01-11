@@ -1,4 +1,5 @@
 # Roadmap for HTTP/2 Server
+
 CREATE TABLE users(
     user_id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -14,6 +15,7 @@ CREATE TABLE users(
 - test the redis instance wtih redis-cli ping
 - PostgreSQL with the above table
 - .env file with database connection string DATABASE_URL
+- gRPC compiler
 
 ## Additional Features
 - gzip compression
@@ -23,28 +25,7 @@ CREATE TABLE users(
 - Detailed logging
 - Authentification (using session cookie)
 - cache support (Redis) response caching
+- Rate limiting
 
 COMING SOON
-- Upgrade header (websockets)
-    Request
-    ```
-    {
-        GET /chat HTTP/1.1
-        Host: example.com
-        Connection: Upgrade             // Tells the server that the client want to upgrade the connection to a different protocol
-        Upgrade: websocket              // Indicates teh client wants to updgrade to WebSocket protocol
-        Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
-        Sec-WebSocket-Version: 13
-    }
-    ```
-
-    Response
-    ```
-    {
-        HTTP/1.1 101 Switching Protocols
-        Upgrade: websocket
-        Connection: Upgrade
-        Sec-WebSocket-Accept: x3JJHMbDL1EzLkh9tHk7QfY9XUWeDYld6R2Gb3BGv7Y=
-    }
-    ```
 - Security: Implement DDoS protection (Rate limiting, IP bla:cklisting)
