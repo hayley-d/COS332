@@ -10,6 +10,8 @@ thiserror = "2.0.9"
 redis = { version = "0.28.0", features = ["tokio-comp","tokio-rustls-comp"] }
 tonic = "0.12.3"
 prost = "0.13.4"
+uuid = {version = "1.11.0",features = ["v4"]}
+
 
 [build-dependencies]
 tonic-build = "0.12.3"
