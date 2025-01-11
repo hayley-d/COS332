@@ -11,8 +11,7 @@ const WINDOW_SIZE: chrono::Duration = chrono::Duration::seconds(5);
 const LIMIT: usize = 15;
 
 pub struct State {
-    endpoints: HashMap<String, Arc<Mutex<HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>>>>>, //HashMap of the end_points that contains a
-                                                                                                  //hashMap of the IpAddresses that contains the VecDeque
+    endpoints: HashMap<String, Arc<Mutex<HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>>>>>,
 }
 
 impl State {
@@ -48,41 +47,40 @@ pub async fn rate_limit(
     end_point: &str,
     timestamp: DateTime<Utc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let request_window: Arc<Mutex<VecDeque<DateTime<Utc>>>> =
-        match (match state.lock().await.endpoints.get(end_point) {
-            Some(map) => map.lock().await,
+    let end_point_map: Arc<Mutex<HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>>>> =
+        match state.lock().await.endpoints.get(end_point) {
+            Some(map) => map.clone(),
             None => {
                 return Err(Box::new(io::Error::new(
                     ErrorKind::Interrupted,
                     "Invalid endpoint",
                 )))
             }
-        })
-        .get(&ip_address)
-        {
-            Some(list) => list.clone(),
-            None => {
-                // IP not yet listed
-                // add IP
-                state
-                    .lock()
-                    .await
-                    .endpoints
-                    .get(end_point)
-                    .unwrap()
-                    .lock()
-                    .await
-                    .insert(ip_address.clone(), Arc::new(Mutex::new(VecDeque::new())));
-                return Err(Box::new(io::Error::new(
-                    ErrorKind::Interrupted,
-                    "Invalid endpoint",
-                )));
-            }
         };
 
-    let index: usize = 0;
+    let mut end_point_map = end_point_map.lock().await;
+
+    let request_window: Arc<Mutex<VecDeque<DateTime<Utc>>>> = match end_point_map.get(&ip_address) {
+        Some(list) => list.clone(),
+        None => {
+            // IP not yet listed -> add IP to the map
+            end_point_map.insert(ip_address.clone(), Arc::new(Mutex::new(VecDeque::new())));
+
+            end_point_map
+                .get(&ip_address)
+                .unwrap()
+                .lock()
+                .await
+                .push_back(timestamp);
+
+            return Ok(());
+        }
+    };
+    let mut gaurd = request_window.lock().await;
+
+    let mut index: usize = 0;
+
     loop {
-        let gaurd = request_window.lock().await;
         let old: &DateTime<Utc> = match gaurd.get(index) {
             Some(t) => t,
             None => break,
@@ -91,21 +89,23 @@ pub async fn rate_limit(
         let time_diff = timestamp.signed_duration_since(old);
 
         if time_diff >= WINDOW_SIZE {
-            request_window.lock().await.pop_front();
+            gaurd.pop_front();
         } else {
             break;
         }
+
+        index += 1;
     }
 
-    let result = request_window.lock().await.len() >= LIMIT;
+    let result = gaurd.len() >= LIMIT;
 
     if !result {
-        request_window.lock().await.push_back(timestamp);
+        gaurd.push_back(timestamp);
         return Ok(());
     } else {
         return Err(Box::new(io::Error::new(
             ErrorKind::Interrupted,
-            "Invalid endpoint",
+            "Limit exeeded",
         )));
     }
 }
@@ -119,12 +119,14 @@ mod tests {
     use super::*;
 
     async fn setup_state() -> Arc<Mutex<State>> {
-        let mut request_map: HashMap<String, HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>>> =
-            HashMap::new();
+        let mut request_map: HashMap<
+            String,
+            Arc<Mutex<HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>>>>,
+        > = HashMap::new();
         let ip = IpAddr::from_str("127.0.0.1").unwrap();
         let endpoint = "/test".to_string();
 
-        let mut inner_map: Arc<Mutex<HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>>>> =
+        let inner_map: Arc<Mutex<HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>>>> =
             Arc::new(Mutex::new(HashMap::new()));
 
         inner_map
@@ -141,7 +143,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_valid_request() {
-        let state = setup_state();
+        let state = setup_state().await;
         let ip = IpAddr::from_str("127.0.0.1").unwrap();
         let endpoint = "/test";
         let timestamp = Utc::now();
@@ -152,7 +154,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_exceed_rate_limit() {
-        let state = setup_state();
+        let state = setup_state().await;
         let ip = IpAddr::from_str("127.0.0.1").unwrap();
         let endpoint = "/test";
         let timestamp = Utc::now();
@@ -167,9 +169,10 @@ mod tests {
         assert!(result.is_err());
     }
 
+    // not done
     #[tokio::test]
     async fn test_window_expires() {
-        let state = setup_state();
+        let state = setup_state().await;
         let ip = IpAddr::from_str("127.0.0.1").unwrap();
         let endpoint = "/test";
 
@@ -190,7 +193,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_invalid_endpoint() {
-        let state = setup_state();
+        let state = setup_state().await;
         let ip = IpAddr::from_str("127.0.0.1").unwrap();
         let endpoint = "/invalid";
         let timestamp = Utc::now();
@@ -199,22 +202,26 @@ mod tests {
         assert!(result.is_err());
     }
 
+    // not done
     #[tokio::test]
     async fn test_invalid_ip() {
-        let state = setup_state();
+        let state = setup_state().await;
         let ip = IpAddr::from_str("192.168.0.1").unwrap();
         let endpoint = "/test";
         let timestamp = Utc::now();
 
         let result = rate_limit(state.clone(), ip, endpoint, timestamp).await;
-        assert!(result.is_err());
+        assert!(result.is_ok());
     }
 
+    // not done
     #[tokio::test]
     async fn test_mixed_ips() {
-        let state = setup_state();
+        let state = setup_state().await;
+
         let ip1 = IpAddr::from_str("127.0.0.1").unwrap();
         let ip2 = IpAddr::from_str("192.168.0.1").unwrap();
+
         let endpoint = "/test";
         let timestamp = Utc::now();
 
@@ -226,6 +233,6 @@ mod tests {
 
         // Another IP should not affect the rate limit for the first IP
         let result = rate_limit(state.clone(), ip2, endpoint, timestamp).await;
-        assert!(result.is_err());
+        assert!(result.is_ok());
     }
 }
