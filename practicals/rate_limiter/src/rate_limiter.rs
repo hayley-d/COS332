@@ -7,21 +7,22 @@ use std::sync::Arc;
 use tokio::io;
 use tokio::sync::Mutex;
 
+type Time = DateTime<Utc>;
+type RequestWindow = Arc<Mutex<VecDeque<Time>>>;
+type IpMap = HashMap<IpAddr, RequestWindow>;
+
 const WINDOW_SIZE: chrono::Duration = chrono::Duration::seconds(5);
 const LIMIT: usize = 15;
 
 #[derive(Debug)]
 pub struct State {
-    endpoints: HashMap<String, Arc<Mutex<HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>>>>>,
+    endpoints: HashMap<String, Arc<Mutex<IpMap>>>,
     lamport_timestamp: u64,
 }
 
 impl State {
     pub fn new() -> Arc<Mutex<Self>> {
-        let mut end_points: HashMap<
-            String,
-            Arc<Mutex<HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>>>>,
-        > = HashMap::new();
+        let mut end_points: HashMap<String, Arc<Mutex<IpMap>>> = HashMap::new();
 
         end_points.insert(String::from("/"), Arc::new(Mutex::new(HashMap::new())));
         end_points.insert(String::from("/home"), Arc::new(Mutex::new(HashMap::new())));
@@ -38,16 +39,16 @@ impl State {
             Arc::new(Mutex::new(HashMap::new())),
         );
 
-        return Arc::new(Mutex::new(State {
+        Arc::new(Mutex::new(State {
             endpoints: end_points,
             lamport_timestamp: 0,
-        }));
+        }))
     }
 
     pub fn increment_time(&mut self) -> u64 {
         let temp = self.lamport_timestamp;
         self.lamport_timestamp += 1;
-        return temp;
+        temp
     }
 
     pub async fn clear_ips(&mut self) {
@@ -92,24 +93,23 @@ pub async fn rate_limit(
         state.clear_ips().await;
     }
 
-    let end_point_map: Arc<Mutex<HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>>>> =
-        match state.endpoints.get(end_point) {
-            Some(map) => map.clone(),
-            None => {
-                return Err(Box::new(io::Error::new(
-                    ErrorKind::Interrupted,
-                    "Invalid endpoint",
-                )))
-            }
-        };
+    let end_point_map: Arc<Mutex<IpMap>> = match state.endpoints.get(end_point) {
+        Some(map) => map.clone(),
+        None => {
+            return Err(Box::new(io::Error::new(
+                ErrorKind::Interrupted,
+                "Invalid endpoint",
+            )))
+        }
+    };
 
     let mut end_point_map = end_point_map.lock().await;
 
-    let request_window: Arc<Mutex<VecDeque<DateTime<Utc>>>> = match end_point_map.get(&ip_address) {
+    let request_window: Arc<Mutex<VecDeque<Time>>> = match end_point_map.get(&ip_address) {
         Some(list) => list.clone(),
         None => {
             // IP not yet listed -> add IP to the map
-            end_point_map.insert(ip_address.clone(), Arc::new(Mutex::new(VecDeque::new())));
+            end_point_map.insert(ip_address, Arc::new(Mutex::new(VecDeque::new())));
 
             end_point_map
                 .get(&ip_address)
@@ -125,12 +125,7 @@ pub async fn rate_limit(
 
     let mut index: usize = 0;
 
-    loop {
-        let old: &DateTime<Utc> = match gaurd.get(index) {
-            Some(t) => t,
-            None => break,
-        };
-
+    while let Some(old) = gaurd.get(index) {
         let time_diff = timestamp.signed_duration_since(old);
 
         if time_diff >= WINDOW_SIZE {
@@ -146,12 +141,12 @@ pub async fn rate_limit(
 
     if !result {
         gaurd.push_back(timestamp);
-        return Ok(());
+        Ok(())
     } else {
-        return Err(Box::new(io::Error::new(
+        Err(Box::new(io::Error::new(
             ErrorKind::Interrupted,
             "Limit exeeded",
-        )));
+        )))
     }
 }
 
