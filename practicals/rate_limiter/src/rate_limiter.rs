@@ -11,8 +11,36 @@ const WINDOW_SIZE: chrono::Duration = chrono::Duration::seconds(5);
 const LIMIT: usize = 15;
 
 pub struct State {
-    request: HashMap<String, Arc<Mutex<HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>>>>>, //HashMap of the end_points that contains a
-                                                                                                //hashMap of the IpAddresses that contains the VecDeque
+    endpoints: HashMap<String, Arc<Mutex<HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>>>>>, //HashMap of the end_points that contains a
+                                                                                                  //hashMap of the IpAddresses that contains the VecDeque
+}
+
+impl State {
+    pub fn new() -> Arc<Mutex<Self>> {
+        let mut end_points: HashMap<
+            String,
+            Arc<Mutex<HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>>>>,
+        > = HashMap::new();
+
+        end_points.insert(String::from("/"), Arc::new(Mutex::new(HashMap::new())));
+        end_points.insert(String::from("/home"), Arc::new(Mutex::new(HashMap::new())));
+        end_points.insert(String::from("/fib"), Arc::new(Mutex::new(HashMap::new())));
+        end_points.insert(String::from("other"), Arc::new(Mutex::new(HashMap::new())));
+        end_points.insert(
+            String::from("/signup"),
+            Arc::new(Mutex::new(HashMap::new())),
+        );
+        end_points.insert(String::from("/login"), Arc::new(Mutex::new(HashMap::new())));
+
+        end_points.insert(
+            String::from("/coffee"),
+            Arc::new(Mutex::new(HashMap::new())),
+        );
+
+        return Arc::new(Mutex::new(State {
+            endpoints: end_points,
+        }));
+    }
 }
 pub async fn rate_limit(
     state: Arc<Mutex<State>>,
@@ -21,7 +49,7 @@ pub async fn rate_limit(
     timestamp: DateTime<Utc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let request_window: Arc<Mutex<VecDeque<DateTime<Utc>>>> =
-        match (match state.lock().await.request.get(end_point) {
+        match (match state.lock().await.endpoints.get(end_point) {
             Some(map) => map.lock().await,
             None => {
                 return Err(Box::new(io::Error::new(
@@ -39,7 +67,7 @@ pub async fn rate_limit(
                 state
                     .lock()
                     .await
-                    .request
+                    .endpoints
                     .get(end_point)
                     .unwrap()
                     .lock()
@@ -90,16 +118,24 @@ mod tests {
 
     use super::*;
 
-    fn setup_state() -> Arc<Mutex<State>> {
+    async fn setup_state() -> Arc<Mutex<State>> {
         let mut request_map: HashMap<String, HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>>> =
             HashMap::new();
         let ip = IpAddr::from_str("127.0.0.1").unwrap();
         let endpoint = "/test".to_string();
-        let mut inner_map: HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>> = HashMap::new();
-        inner_map.insert(ip, Arc::new(Mutex::new(VecDeque::new())));
+
+        let mut inner_map: Arc<Mutex<HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+
+        inner_map
+            .lock()
+            .await
+            .insert(ip, Arc::new(Mutex::new(VecDeque::new())));
+
         request_map.insert(endpoint, inner_map);
+
         Arc::new(Mutex::new(State {
-            request: request_map,
+            endpoints: request_map,
         }))
     }
 
