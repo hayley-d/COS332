@@ -10,6 +10,7 @@ use tokio::sync::Mutex;
 const WINDOW_SIZE: chrono::Duration = chrono::Duration::seconds(5);
 const LIMIT: usize = 15;
 
+#[derive(Debug)]
 pub struct State {
     endpoints: HashMap<String, Arc<Mutex<HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>>>>>,
     lamport_timestamp: u64,
