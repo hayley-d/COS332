@@ -9,11 +9,15 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Mutex;
+use tokio_util::codec::Framed;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // listend on port 3000
+    let mut nodes: Vec<String> = get_nodes();
+
+    // Listen on port 3000
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+
     let listener: TcpListener = match TcpListener::bind(addr).await {
         Ok(l) => l,
         Err(_) => {
@@ -24,20 +28,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Listening on http://{}", addr);
 
-    let mut nodes: Vec<String> = vec![
-        String::from("http://127.0.0.1:7878"),
-        String::from("http://127.0.0.1:7879"),
-    ];
-
     let state: LoadBalancer = match LoadBalancer::new(2, &mut nodes).await {
         Ok(s) => s,
         Err(_) => std::process::exit(1),
     };
 
     let state: Arc<Mutex<LoadBalancer>> = Arc::new(Mutex::new(state));
-
-    let mut http = http1::Builder::new();
-    let http = http.preserve_header_case(true).title_case_headers(true);
 
     let graceful = hyper_util::server::graceful::GracefulShutdown::new();
     let mut signal = std::pin::pin!(shutdown_signal());
@@ -46,22 +42,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let state = state.clone();
         tokio::select! {
             Ok((stream,address)) = listener.accept() => {
-                let io = TokioIo::new(stream);
-
                 let state_clone = state.clone();
 
-                let connection = http.serve_connection(
-                    io,
-                    service_fn(move |req| proxy(req, address, state_clone.clone())),
-                );
-
-                let fut = graceful.watch(connection);
-
                 tokio::spawn(async move{
-                    if let Err(_) = fut.await {
+                    let mut buffer: [u8;4096] = [0;u8];
+                    let mut transport = Framed::new(stream,Http);
+                    while let Some(request) = transport.next().await {
+                        match request {
+                            Ok(request) => {
+                            },
+                            Err(_) => {
+                                return;
+                            }
+                        }
+                    }
+                    if let Err(_) = reverse_porxy(address,state_clone.clone()).await {
                         eprintln!("Error serving connecion");
                     }
                 });
+
+                todo!();
             },
             _ = &mut signal => {
                 eprintln!("graceful shutdown signal recieved");
@@ -123,4 +123,21 @@ async fn shutdown_signal() {
     tokio::signal::ctrl_c()
         .await
         .expect("failed to install CTRL+C signal handler");
+}
+
+fn get_nodes() -> Vec<String> {
+    // Load the .env file
+    dotenv().ok();
+
+    let mut nodes: Vec<String> = Vec::new();
+
+    for (key, value) in env::vars() {
+        if key.starts_with("NODE") {
+            nodes.push(value);
+        }
+    }
+
+    println!("Loaded nodes");
+
+    nodes
 }

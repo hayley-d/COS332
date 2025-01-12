@@ -17,6 +17,9 @@ hyper-util = {version="0.1.10",features=["full"]}
 http-body-util = "0.1.2"
 bytes = "1.9.0"
 http = "1.2.0"
+dotenv = "0.15.0"
+dotenv_codegen = "0.15.0"
+tokio-util = "0.7.13"
 
 [build-dependencies]
 tonic-build = "0.12.3"

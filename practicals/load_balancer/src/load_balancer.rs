@@ -11,7 +11,7 @@ pub mod load_balancer {
     use tokio::time::timeout;
     use tonic::transport::Channel;
 
-    const RATELIMITERADDRESS: &str = "http://127.0.0.1:7879";
+    const RATELIMITERADDRESS: &str = "http://127.0.0.1:50051";
 
     /// Node represents a replica in the distributed system.
     /// `address` is a url address for the replica
