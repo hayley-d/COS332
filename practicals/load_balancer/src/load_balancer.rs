@@ -255,7 +255,10 @@ pub mod load_balancer {
                     };
 
                     // establish connection and send request
-                    let stream = TcpStream::connect(node.address.clone()).await.unwrap();
+                    let backend_system = TcpStream::connect(node.address.clone()).await.unwrap();
+
+                    backen_system.write_all(request.request);
+
                     let io = TokioIo::new(stream);
 
                     let (mut sender, conn) = Builder::new()

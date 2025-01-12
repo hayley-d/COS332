@@ -7,7 +7,7 @@ use hyper_util::rt::TokioIo;
 use load_balancer::load_balancer::load_balancer::LoadBalancer;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Mutex;
 
 #[tokio::main]
@@ -83,18 +83,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn proxy(
-    req: Request<hyper::body::Incoming>,
+async fn reverse_proxy(
+    req: http::Request<()>,
     client_address: SocketAddr,
+    client_stream: TcpStream,
     state: Arc<Mutex<LoadBalancer>>,
-) -> Result<Response<Full<Bytes>>, hyper::Error> {
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Ignore favicon.ico requests
     if req.uri().path() == "/favicon.ico" {
-        return Ok(Response::builder()
-            .body(Full::new(Bytes::from("Not Found")))
-            .unwrap());
+        return Ok(());
     }
 
+    // add the client IP address custom header
+    req.headers_mut()
+        .insert("X-Client-IP", client_address.to_string().parse().unwrap());
+
     let uri = req.uri().path().to_string();
+
     let request: load_balancer::request::Request =
         load_balancer::request::Request::new(uri, client_address.to_string(), req);
 
@@ -103,6 +108,7 @@ async fn proxy(
         let _ = state.lock().await.distribute().await;
     } else {
         // request not added respond status 429 too many requests
+
         return Ok(Response::builder()
             .status(429)
             .body(Full::new(Bytes::from("Too Many Request")))
