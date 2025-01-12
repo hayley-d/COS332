@@ -5,6 +5,7 @@ use hyper::service::service_fn;
 use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
 use load_balancer::load_balancer::load_balancer::LoadBalancer;
+use load_balancer::request::buffer_to_request;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
@@ -41,27 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         let state = state.clone();
         tokio::select! {
-            Ok((stream,address)) = listener.accept() => {
-                let state_clone = state.clone();
-
-                tokio::spawn(async move{
-                    let mut buffer: [u8;4096] = [0;u8];
-                    let mut transport = Framed::new(stream,Http);
-                    while let Some(request) = transport.next().await {
-                        match request {
-                            Ok(request) => {
-                            },
-                            Err(_) => {
-                                return;
-                            }
-                        }
-                    }
-                    if let Err(_) = reverse_porxy(address,state_clone.clone()).await {
-                        eprintln!("Error serving connecion");
-                    }
-                });
-
-                todo!();
+            _ = reverse_proxy(listener,state.clone()) => {
             },
             _ = &mut signal => {
                 eprintln!("graceful shutdown signal recieved");
@@ -84,35 +65,53 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn reverse_proxy(
-    req: http::Request<()>,
-    client_address: SocketAddr,
-    client_stream: TcpStream,
+    listener: TcpListener,
     state: Arc<Mutex<LoadBalancer>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // Ignore favicon.ico requests
-    if req.uri().path() == "/favicon.ico" {
-        return Ok(());
-    }
+    loop {
+        let (stream, client_address) = listener.accept().await;
 
-    // add the client IP address custom header
-    req.headers_mut()
-        .insert("X-Client-IP", client_address.to_string().parse().unwrap());
+        tokio::spawn(async move {
+            let mut buffer: [u8; 4096] = [0; u8];
 
-    let uri = req.uri().path().to_string();
+            let bytes_read = match stream.read(&mut buffer).await {
+                Ok(0) => return,
+                Ok(n) => n,
+                Err(_) => return,
+            };
 
-    let request: load_balancer::request::Request =
-        load_balancer::request::Request::new(uri, client_address.to_string(), req);
+            let request: http::Request<Vec<u8>> = match buffer_to_request(buffer) {
+                Ok(request) => request,
+                _ => return,
+            };
 
-    if state.lock().await.insert(request).await {
-        // request got added
-        let _ = state.lock().await.distribute().await;
-    } else {
-        // request not added respond status 429 too many requests
+            // Ignore favicon.ico requests
+            if request.uri().path() == "/favicon.ico" {
+                return;
+            }
 
-        return Ok(Response::builder()
-            .status(429)
-            .body(Full::new(Bytes::from("Too Many Request")))
-            .unwrap());
+            // add the client IP address custom header
+            request
+                .headers_mut()
+                .insert("X-Client-IP", client_address.to_string().parse().unwrap());
+
+            let uri = request.uri().path().to_string();
+
+            let request: load_balancer::request::Request =
+                load_balancer::request::Request::new(uri, client_address.to_string(), req);
+
+            if state.lock().await.insert(request).await {
+                // request got added
+                let _ = state.lock().await.distribute().await;
+            } else {
+                // request not added respond status 429 too many requests
+
+                return Ok(Response::builder()
+                    .status(429)
+                    .body(Full::new(Bytes::from("Too Many Request")))
+                    .unwrap());
+            }
+        });
     }
 
     todo!()

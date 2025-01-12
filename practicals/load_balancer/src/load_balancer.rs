@@ -2,11 +2,14 @@ pub mod load_balancer {
     use crate::rate_limiter_proto::rate_limiter_client::RateLimiterClient;
     use crate::rate_limiter_proto::RateLimitRequest;
     use crate::request::Request;
+    use hyper::body::Body;
     use hyper::client::conn::http1::Builder;
+    use hyper_util::client::legacy::Client;
     use hyper_util::rt::TokioIo;
     use rand::Rng;
     use std::collections::VecDeque;
     use std::time::Duration;
+    use tokio::io::AsyncWriteExt;
     use tokio::net::TcpStream;
     use tokio::time::timeout;
     use tonic::transport::Channel;
@@ -255,27 +258,52 @@ pub mod load_balancer {
                     };
 
                     // establish connection and send request
-                    let backend_system = TcpStream::connect(node.address.clone()).await.unwrap();
+                    let request = match serialize_request(request.request).await {
+                        Ok(r) => r,
+                        _ => continue,
+                    };
 
-                    backen_system.write_all(request.request);
-
-                    let io = TokioIo::new(stream);
-
-                    let (mut sender, conn) = Builder::new()
-                        .preserve_header_case(true)
-                        .title_case_headers(true)
-                        .handshake(io)
-                        .await?;
-                    tokio::task::spawn(async move {
-                        if let Err(_) = conn.await {
-                            println!("connection failed");
-                        }
-                    });
-
-                    let resp = sender.send_request(request.request).await?;
+                    let _ = send_request(request, node.address.to_string()).await;
                 }
             }
             return Ok(());
         }
+    }
+
+    async fn send_request(request: Vec<u8>, uri: String) -> Result<(), Box<dyn std::error::Error>> {
+        let mut stream = TcpStream::connect(uri).await?;
+        stream.write_all(&request).await?;
+        Ok(())
+    }
+
+    async fn serialize_request(
+        request: http::Request<Vec<u8>>,
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        let (parts, body) = request.into_parts();
+
+        let mut request_bytes: Vec<u8> = Vec::new();
+
+        request_bytes.extend_from_slice(parts.method.as_str().as_bytes());
+        request_bytes.extend_from_slice(b" ");
+        request_bytes.extend_from_slice(
+            parts
+                .uri
+                .path_and_query()
+                .map_or(b"/".as_slice(), |pq| pq.as_str().as_bytes()),
+        );
+        request_bytes.extend_from_slice(b" ");
+        request_bytes.extend_from_slice(format!("{:?}\r\n", parts.version).as_bytes());
+
+        for (name, value) in &parts.headers {
+            request_bytes.extend_from_slice(name.as_str().as_bytes());
+            request_bytes.extend_from_slice(b": ");
+            request_bytes.extend_from_slice(value.as_bytes());
+            request_bytes.extend_from_slice(b"\r\n");
+        }
+
+        // Add the body
+        request_bytes.extend_from_slice(&body);
+
+        Ok(request_bytes)
     }
 }
