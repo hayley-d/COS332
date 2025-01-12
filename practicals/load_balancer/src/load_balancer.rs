@@ -1,15 +1,14 @@
 pub mod load_balancer {
-    use std::collections::VecDeque;
-    use std::net::IpAddr;
-    use std::time::Duration;
-
-    use rand::Rng;
-    use tokio::time::timeout;
-    use tonic::transport::Channel;
-
     use crate::rate_limiter_proto::rate_limiter_client::RateLimiterClient;
     use crate::rate_limiter_proto::RateLimitRequest;
     use crate::request::Request;
+    use rand::Rng;
+    use std::collections::VecDeque;
+    use std::time::Duration;
+    use tokio::time::timeout;
+    use tonic::transport::Channel;
+
+    const RATELIMITERADDRESS: &str = "http://127.0.0.1:7879";
 
     /// Node represents a replica in the distributed system.
     /// `address` is a url address for the replica
@@ -64,7 +63,6 @@ pub mod load_balancer {
         pub nodes: Vec<Node>,
         pub available_nodes: u32,
         pub lamport_timestamp: u64,
-        pub rate_limiter_address: String,
     }
 
     impl LoadBalancer {
@@ -74,7 +72,7 @@ pub mod load_balancer {
             temp
         }
 
-        pub async fn insert(&mut self, request: Request) {
+        pub async fn insert(&mut self, request: Request) -> bool {
             let rate_limit_request = RateLimitRequest {
                 ip_address: request.client_ip.clone(),
                 endpoint: request.uri.clone(),
@@ -82,9 +80,9 @@ pub mod load_balancer {
             };
 
             let mut client: RateLimiterClient<Channel> =
-                match RateLimiterClient::connect(self.rate_limiter_address.clone()).await {
+                match RateLimiterClient::connect(RATELIMITERADDRESS.to_string().clone()).await {
                     Ok(c) => c,
-                    Err(_) => return,
+                    Err(_) => return false,
                 };
 
             let response = match timeout(
@@ -94,21 +92,23 @@ pub mod load_balancer {
             .await
             {
                 Ok(Ok(value)) => value,
-                Ok(Err(_)) => return,
+                Ok(Err(_)) => return false,
                 Err(_) => {
-                    return;
+                    return false;
                 }
             };
 
             if response.into_inner().allowed {
                 self.buffer.push_back(request);
+                return true;
             }
+
+            return false;
         }
 
         pub async fn new(
             mut available_nodes: u32,
             addresses: &mut Vec<String>,
-            rate_limiter_address: String,
         ) -> Result<Self, Box<dyn std::error::Error>> {
             let mut nodes: Vec<Node> = Vec::with_capacity(available_nodes as usize);
             let mut weights: Vec<f32> = Vec::with_capacity(available_nodes as usize);
@@ -143,7 +143,6 @@ pub mod load_balancer {
                 nodes,
                 available_nodes,
                 lamport_timestamp: 0,
-                rate_limiter_address,
             })
         }
         pub async fn add_node(&mut self, address: String) {
