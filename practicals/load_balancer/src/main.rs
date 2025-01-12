@@ -1,19 +1,14 @@
 use bytes::Bytes;
-use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full};
-use hyper::body::Bytes as httpBytes;
+use http_body_util::Full;
 use hyper::server::conn::http1;
-use hyper::service::{service_fn, Service};
-use hyper::{Request, Response, Uri};
+use hyper::service::service_fn;
+use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
 use load_balancer::load_balancer::load_balancer::LoadBalancer;
-use std::future::Future;
 use std::net::SocketAddr;
-use std::pin::Pin;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
-
-const RATELIMITERADDRESS: &str = "http://127.0.0.1:7879";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Listening on http://{}", addr);
 
-    let nodes: Vec<String> = vec![
+    let mut nodes: Vec<String> = vec![
         String::from("http://127.0.0.1:7878"),
         String::from("http://127.0.0.1:7879"),
     ];
@@ -42,7 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state: Arc<Mutex<LoadBalancer>> = Arc::new(Mutex::new(state));
 
     let mut http = http1::Builder::new();
-    let mut http = http.preserve_header_case(true).title_case_headers(true);
+    let http = http.preserve_header_case(true).title_case_headers(true);
 
     let graceful = hyper_util::server::graceful::GracefulShutdown::new();
     let mut signal = std::pin::pin!(shutdown_signal());
@@ -63,7 +58,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let fut = graceful.watch(connection);
 
                 tokio::spawn(async move{
-                    if let Err(e) = fut.await {
+                    if let Err(_) = fut.await {
                         eprintln!("Error serving connecion");
                     }
                 });
@@ -75,76 +70,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    Ok(())
-}
-
-impl Service<hyper::Request<hyper::body::Incoming>> for LoadBalancer {
-    type Response = Response<Full<Bytes>>;
-
-    type Error = hyper::Error;
-
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
-
-    fn call(&self, req: Request<hyper::body::Incoming>) -> Self::Future {
-        fn make_response(s: String) -> Result<Response<Full<Bytes>>, hyper::Error> {
-            Ok(Response::builder().body(Full::new(Bytes::from(s))).unwrap())
+    // Now start the shutdown and wait for them to complete
+    tokio::select! {
+        _ = graceful.shutdown() => {
+            eprintln!("all connections gracefully closed");
+        },
+        _ = tokio::time::sleep(std::time::Duration::from_secs(5)) => {
+            eprintln!("timed out wait for all connections to close");
         }
-
-        todo!()
     }
+
+    Ok(())
 }
 
 async fn proxy(
     req: Request<hyper::body::Incoming>,
     client_address: SocketAddr,
     state: Arc<Mutex<LoadBalancer>>,
-) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
+) -> Result<Response<Full<Bytes>>, hyper::Error> {
+    if req.uri().path() == "/favicon.ico" {
+        return Ok(Response::builder()
+            .body(Full::new(Bytes::from("Not Found")))
+            .unwrap());
+    }
+
     let uri = req.uri().path().to_string();
     let request: load_balancer::request::Request =
-        load_balancer::request::Request::new(uri, client_address.to_string());
-
-    if req.uri().path() != "/favicon.ico" {
-        let uri = req.uri().to_string();
-    } else {
-        let res = make_response("Not found".into());
-        return Box::pin(async { res });
-    }
+        load_balancer::request::Request::new(uri, client_address.to_string(), req);
 
     if state.lock().await.insert(request).await {
         // request got added
+        let _ = state.lock().await.distribute().await;
     } else {
         // request not added respond status 429 too many requests
         return Ok(Response::builder()
             .status(429)
-            .body(BoxBody::new(Ok(Bytes::from("Too Many Requests"))))
+            .body(Full::new(Bytes::from("Too Many Request")))
             .unwrap());
     }
 
     todo!()
-}
-
-// Service that define how the server responds to the request
-async fn handle_request(
-    request: Request<hyper::body::Incoming>,
-    client_address: Option<SocketAddr>,
-    state: Arc<Mutex<LoadBalancer>>,
-) -> Result<Response<Full<Bytes>>, hyper::Error> {
-    let target_uri: String = get_target_uri(&request).to_string();
-
-    Ok(Response::new(Full::new(Bytes::from("Hello, World!"))))
-}
-
-// Extract the target URI
-fn get_target_uri(req: &Request<hyper::body::Incoming>) -> Uri {
-    let path_and_query = req
-        .uri()
-        .path_and_query()
-        .map(|pq| pq.as_str())
-        .unwrap_or("");
-
-    let target_uri = format!("{}", path_and_query);
-
-    target_uri.parse().unwrap()
 }
 
 async fn shutdown_signal() {

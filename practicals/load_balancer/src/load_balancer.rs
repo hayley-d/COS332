@@ -2,9 +2,12 @@ pub mod load_balancer {
     use crate::rate_limiter_proto::rate_limiter_client::RateLimiterClient;
     use crate::rate_limiter_proto::RateLimitRequest;
     use crate::request::Request;
+    use hyper::client::conn::http1::Builder;
+    use hyper_util::rt::TokioIo;
     use rand::Rng;
     use std::collections::VecDeque;
     use std::time::Duration;
+    use tokio::net::TcpStream;
     use tokio::time::timeout;
     use tonic::transport::Channel;
 
@@ -252,7 +255,21 @@ pub mod load_balancer {
                     };
 
                     // establish connection and send request
-                    todo!();
+                    let stream = TcpStream::connect(node.address.clone()).await.unwrap();
+                    let io = TokioIo::new(stream);
+
+                    let (mut sender, conn) = Builder::new()
+                        .preserve_header_case(true)
+                        .title_case_headers(true)
+                        .handshake(io)
+                        .await?;
+                    tokio::task::spawn(async move {
+                        if let Err(_) = conn.await {
+                            println!("connection failed");
+                        }
+                    });
+
+                    let resp = sender.send_request(request.request).await?;
                 }
             }
             return Ok(());
