@@ -1,8 +1,5 @@
-use bytes::Bytes;
-use dotenv::*;
-use http_body_util::Full;
-use hyper::Response;
-use load_balancer::load_balancer::load_balancer::LoadBalancer;
+use dotenv::dotenv;
+use load_balancer::load_balancer::consistent_hashing::LoadBalancer;
 use load_balancer::request::buffer_to_request;
 use std::env;
 use std::net::SocketAddr;
@@ -12,7 +9,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Mutex, Notify};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     let mut nodes: Vec<String> = get_nodes();
 
     // Listen on port 3000
@@ -61,7 +58,7 @@ async fn reverse_proxy(listener: TcpListener, state: Arc<Mutex<LoadBalancer>>) {
             tokio::spawn(async move {
                 let mut buffer: [u8; 4096] = [0; 4096];
 
-                while let Ok(bytes_read) = stream.read(&mut buffer).await {
+                if let Ok(bytes_read) = stream.read(&mut buffer).await {
                     if bytes_read == 0 {
                         return;
                     }
@@ -78,6 +75,7 @@ async fn reverse_proxy(listener: TcpListener, state: Arc<Mutex<LoadBalancer>>) {
 
                     // Ignore favicon.ico requests
                     if request.uri().path() == "/favicon.ico" {
+                        send_error_response(404, &mut stream).await;
                         return;
                     }
 
@@ -95,17 +93,15 @@ async fn reverse_proxy(listener: TcpListener, state: Arc<Mutex<LoadBalancer>>) {
                             request,
                         );
 
-                    if state.lock().await.insert(request).await {
+                    let mut state = state.lock().await;
+                    if state.insert(request).await {
                         // request got added
-                        let _ = state.lock().await.distribute().await;
-                        return;
+                        let _ = state.distribute().await;
                     } else {
                         // request not added respond status 429 too many requests
                         send_error_response(429, &mut stream).await;
-                        return;
                     }
                 }
-                return;
             });
         }
     }
@@ -139,15 +135,31 @@ fn get_nodes() -> Vec<String> {
 async fn send_error_response(code: u64, stream: &mut TcpStream) {
     match code {
         429 => {
-            let response_bytes =
-                format!("HTTP/1.1 429 Too Many Requests\r\nContent-Length: 0\r\n\r\n",)
-                    .into_bytes();
+            let response_bytes = "HTTP/1.1 429 Too Many Requests\r\nContent-Length: 0\r\n\r\n"
+                .to_string()
+                .into_bytes();
 
             let _ = stream.write_all(&response_bytes).await;
         }
+        400 => {
+            let response_bytes = "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n"
+                .to_string()
+                .into_bytes();
+
+            let _ = stream.write_all(&response_bytes).await;
+        }
+        404 => {
+            let response_bytes = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n"
+                .to_string()
+                .into_bytes();
+
+            let _ = stream.write_all(&response_bytes).await;
+        }
+
         _ => {
-            let response_bytes =
-                format!("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n",).into_bytes();
+            let response_bytes = "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n"
+                .to_string()
+                .into_bytes();
 
             let _ = stream.write_all(&response_bytes).await;
         }

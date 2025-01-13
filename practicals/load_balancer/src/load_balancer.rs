@@ -1,4 +1,4 @@
-pub mod load_balancer {
+pub mod consistent_hashing {
     use crate::rate_limiter_proto::rate_limiter_client::RateLimiterClient;
     use crate::rate_limiter_proto::RateLimitRequest;
     use crate::request::Request;
@@ -72,7 +72,7 @@ pub mod load_balancer {
                 return true;
             }
 
-            return false;
+            false
         }
 
         pub async fn new(addresses: &mut Vec<String>) -> Self {
@@ -130,7 +130,7 @@ pub mod load_balancer {
                 let _ = send_request(request, node_address).await;
             }
 
-            return Ok(());
+            Ok(())
         }
 
         /// Calculate the hash for a node using hasher instance

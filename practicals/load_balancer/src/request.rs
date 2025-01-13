@@ -40,7 +40,7 @@ pub fn buffer_to_request(buffer: Vec<u8>) -> Result<http::Request<Vec<u8>>, Stri
 
     let (header_part, body) = buffer.split_at(delimiter + 4);
 
-    let request_str: String = match std::str::from_utf8(&header_part) {
+    let request_str: String = match std::str::from_utf8(header_part) {
         Ok(s) => s.to_string(),
         Err(_) => return Err("Invalid UTF-8 sequence in buffer".to_string()),
     };
@@ -49,7 +49,7 @@ pub fn buffer_to_request(buffer: Vec<u8>) -> Result<http::Request<Vec<u8>>, Stri
 
     let request_line: String = match lines.next() {
         Some(l) => l.to_string(),
-        None => return Err(format!("Missing request line")),
+        None => return Err("Missing request line".to_string()),
     };
 
     let mut request_line = request_line.split_whitespace();
@@ -57,26 +57,26 @@ pub fn buffer_to_request(buffer: Vec<u8>) -> Result<http::Request<Vec<u8>>, Stri
     let method: Method = match request_line.next() {
         Some(m) => match m.parse::<Method>() {
             Ok(m) => m,
-            _ => return Err(format!("Invalid HTTP method")),
+            _ => return Err("Invalid HTTP method".to_string()),
         },
-        _ => return Err(format!("Missing HTTP method")),
+        _ => return Err("Missing HTTP method".to_string()),
     };
 
     let uri: Uri = match request_line.next() {
         Some(u) => match u.parse::<Uri>() {
             Ok(u) => u,
-            _ => return Err(format!("Invalid URI")),
+            _ => return Err("Invalid URI".to_string()),
         },
-        _ => return Err(format!("Missing URI")),
+        _ => return Err("Missing URI".to_string()),
     };
 
     let version: Version = match request_line.next() {
         Some(v) => match v {
             "HTTP/1.0" => Version::HTTP_10,
             "HTTP/1.1" => Version::HTTP_11,
-            _ => return Err(format!("Invalid HTTP Version")),
+            _ => return Err("Invalid HTTP Version".to_string()),
         },
-        None => return Err(format!("Missing HTTP version")),
+        None => return Err("Missing HTTP version".to_string()),
     };
 
     let mut request_builder = http::Request::builder()
@@ -93,12 +93,12 @@ pub fn buffer_to_request(buffer: Vec<u8>) -> Result<http::Request<Vec<u8>>, Stri
 
         let name = match header_parts.next() {
             Some(n) => n,
-            _ => return Err(format!("Malformed Header")),
+            _ => return Err("Malformed Header".to_string()),
         };
 
         let value = match header_parts.next() {
             Some(n) => n,
-            _ => return Err(format!("Malformed Header")),
+            _ => return Err("Malformed Header".to_string()),
         };
 
         request_builder = request_builder.header(name, value);
@@ -106,7 +106,7 @@ pub fn buffer_to_request(buffer: Vec<u8>) -> Result<http::Request<Vec<u8>>, Stri
 
     let request = match request_builder.body(body.to_vec()) {
         Ok(r) => r,
-        _ => return Err(format!("Failed to build request")),
+        _ => return Err("Failed to build request".to_string()),
     };
 
     Ok(request)
