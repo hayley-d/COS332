@@ -2,14 +2,13 @@ use chrono::prelude::*;
 use chrono::Utc;
 use std::collections::{HashMap, VecDeque};
 use std::io::ErrorKind;
-use std::net::IpAddr;
 use std::sync::Arc;
 use tokio::io;
 use tokio::sync::Mutex;
 
 type Time = DateTime<Utc>;
 type RequestWindow = Arc<Mutex<VecDeque<Time>>>;
-type IpMap = HashMap<IpAddr, RequestWindow>;
+type IpMap = HashMap<String, RequestWindow>;
 
 const WINDOW_SIZE: chrono::Duration = chrono::Duration::seconds(5);
 const LIMIT: usize = 15;
@@ -53,7 +52,7 @@ impl State {
 
     pub async fn clear_ips(&mut self) {
         let now = Utc::now();
-        let mut removable_endpoints: Vec<(String, IpAddr)> = Vec::new();
+        let mut removable_endpoints: Vec<(String, String)> = Vec::new();
         for (endpoint, ip_map) in &mut self.endpoints {
             let ip_map_guard = ip_map.lock().await;
             for (ip, request_window) in ip_map_guard.iter() {
@@ -68,7 +67,7 @@ impl State {
                 }
 
                 if window_guard.is_empty() {
-                    removable_endpoints.push((endpoint.clone(), *ip));
+                    removable_endpoints.push((endpoint.clone(), ip.clone()));
                 }
             }
         }
@@ -84,7 +83,7 @@ impl State {
 }
 pub async fn rate_limit(
     state: Arc<Mutex<State>>,
-    ip_address: IpAddr,
+    ip_address: String,
     end_point: &str,
     timestamp: DateTime<Utc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -109,7 +108,7 @@ pub async fn rate_limit(
         Some(list) => list.clone(),
         None => {
             // IP not yet listed -> add IP to the map
-            end_point_map.insert(ip_address, Arc::new(Mutex::new(VecDeque::new())));
+            end_point_map.insert(ip_address.clone(), Arc::new(Mutex::new(VecDeque::new())));
 
             end_point_map
                 .get(&ip_address)
@@ -162,12 +161,12 @@ mod tests {
     async fn setup_state() -> Arc<Mutex<State>> {
         let mut request_map: HashMap<
             String,
-            Arc<Mutex<HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>>>>,
+            Arc<Mutex<HashMap<String, Arc<Mutex<VecDeque<DateTime<Utc>>>>>>>,
         > = HashMap::new();
-        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+        let ip = "127.0.0.1".to_string();
         let endpoint = "/test".to_string();
 
-        let inner_map: Arc<Mutex<HashMap<IpAddr, Arc<Mutex<VecDeque<DateTime<Utc>>>>>>> =
+        let inner_map: Arc<Mutex<HashMap<String, Arc<Mutex<VecDeque<DateTime<Utc>>>>>>> =
             Arc::new(Mutex::new(HashMap::new()));
 
         inner_map
@@ -186,7 +185,7 @@ mod tests {
     #[tokio::test]
     async fn test_valid_request() {
         let state = setup_state().await;
-        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+        let ip = "127.0.0.1".to_string();
         let endpoint = "/test";
         let timestamp = Utc::now();
 
@@ -197,12 +196,12 @@ mod tests {
     #[tokio::test]
     async fn test_exceed_rate_limit() {
         let state = setup_state().await;
-        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+        let ip = "127.0.0.1".to_string();
         let endpoint = "/test";
         let timestamp = Utc::now();
 
         for _ in 0..LIMIT {
-            rate_limit(state.clone(), ip, endpoint, timestamp)
+            rate_limit(state.clone(), ip.clone(), endpoint, timestamp)
                 .await
                 .unwrap();
         }
@@ -215,12 +214,12 @@ mod tests {
     #[tokio::test]
     async fn test_window_expires() {
         let state = setup_state().await;
-        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+        let ip = "127.0.0.1".to_string();
         let endpoint = "/test";
 
         let mut timestamp = Utc::now();
         for _ in 0..LIMIT {
-            rate_limit(state.clone(), ip, endpoint, timestamp)
+            rate_limit(state.clone(), ip.clone(), endpoint, timestamp)
                 .await
                 .unwrap();
             timestamp = timestamp + Duration::seconds(1);
@@ -236,12 +235,12 @@ mod tests {
     #[tokio::test]
     async fn test_exact_window_boundary() {
         let state = setup_state().await;
-        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+        let ip = "127.0.0.1".to_string();
         let now = Utc::now();
         let end_point = "/test";
 
         for _ in 0..LIMIT {
-            let result = rate_limit(state.clone(), ip, end_point, now).await;
+            let result = rate_limit(state.clone(), ip.clone(), end_point, now).await;
             assert!(result.is_ok());
         }
 
@@ -252,26 +251,38 @@ mod tests {
     #[tokio::test]
     async fn test_burst_traffic() {
         let state = setup_state().await;
-        let ip = IpAddr::from_str("127.0.0.1").unwrap();
-        let ip2 = IpAddr::from_str("127.0.0.2").unwrap();
+        let ip = "127.0.0.1".to_string();
+        let ip2 = "127.0.0.2".to_string();
 
         let now = Utc::now();
 
         for _ in 0..LIMIT {
-            assert!(rate_limit(state.clone(), ip, "/test", now).await.is_ok());
-            assert!(rate_limit(state.clone(), ip2, "/test", now).await.is_ok());
+            assert!(rate_limit(state.clone(), ip.clone(), "/test", now)
+                .await
+                .is_ok());
+            assert!(rate_limit(state.clone(), ip2.clone(), "/test", now)
+                .await
+                .is_ok());
         }
 
-        assert!(rate_limit(state.clone(), ip, "/test", now).await.is_err());
-        assert!(rate_limit(state.clone(), ip, "/test", now).await.is_err());
-        assert!(rate_limit(state.clone(), ip2, "/test", now).await.is_err());
-        assert!(rate_limit(state.clone(), ip2, "/test", now).await.is_err());
+        assert!(rate_limit(state.clone(), ip.clone(), "/test", now)
+            .await
+            .is_err());
+        assert!(rate_limit(state.clone(), ip.clone(), "/test", now)
+            .await
+            .is_err());
+        assert!(rate_limit(state.clone(), ip2.clone(), "/test", now)
+            .await
+            .is_err());
+        assert!(rate_limit(state.clone(), ip2.clone(), "/test", now)
+            .await
+            .is_err());
     }
 
     #[tokio::test]
     async fn test_invalid_endpoint() {
         let state = setup_state().await;
-        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+        let ip = "127.0.0.1".to_string();
         let endpoint = "/invalid";
         let timestamp = Utc::now();
 
@@ -283,7 +294,7 @@ mod tests {
     #[tokio::test]
     async fn test_invalid_ip() {
         let state = setup_state().await;
-        let ip = IpAddr::from_str("192.168.0.1").unwrap();
+        let ip = "192.168.0.1".to_string();
         let endpoint = "/test";
         let timestamp = Utc::now();
 
@@ -295,15 +306,14 @@ mod tests {
     #[tokio::test]
     async fn test_mixed_ips() {
         let state = setup_state().await;
-
-        let ip1 = IpAddr::from_str("127.0.0.1").unwrap();
-        let ip2 = IpAddr::from_str("192.168.0.1").unwrap();
+        let ip1 = "127.0.0.1".to_string();
+        let ip2 = "192.168.0.1".to_string();
 
         let endpoint = "/test";
         let timestamp = Utc::now();
 
         for _ in 0..LIMIT {
-            rate_limit(state.clone(), ip1, endpoint, timestamp)
+            rate_limit(state.clone(), ip1.clone(), endpoint, timestamp)
                 .await
                 .unwrap();
         }
@@ -316,24 +326,31 @@ mod tests {
     #[tokio::test]
     async fn test_under_limit() {
         let state = setup_state().await;
-        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+        let ip = "127.0.0.1".to_string();
+
         let now = Utc::now();
 
         for _ in 0..(LIMIT - 1) {
-            assert!(rate_limit(state.clone(), ip, "/test", now).await.is_ok());
+            assert!(rate_limit(state.clone(), ip.clone(), "/test", now)
+                .await
+                .is_ok());
         }
     }
 
     #[tokio::test]
     async fn test_multiple_ips_endpoints() {
         let state = setup_state().await;
-        let ip1 = IpAddr::from_str("127.0.0.1").unwrap();
-        let ip2 = IpAddr::from_str("192.168.0.1").unwrap();
+        let ip1 = "127.0.0.1".to_string();
+        let ip2 = "192.168.0.1".to_string();
         let now = Utc::now();
 
         for _ in 0..LIMIT {
-            assert!(rate_limit(state.clone(), ip1, "/test", now).await.is_ok());
-            assert!(rate_limit(state.clone(), ip2, "/test", now).await.is_ok());
+            assert!(rate_limit(state.clone(), ip1.clone(), "/test", now)
+                .await
+                .is_ok());
+            assert!(rate_limit(state.clone(), ip2.clone(), "/test", now)
+                .await
+                .is_ok());
         }
 
         assert!(rate_limit(state.clone(), ip1, "/test", now).await.is_err());
@@ -343,12 +360,12 @@ mod tests {
     #[tokio::test]
     async fn test_sliding_window_precision() {
         let state = setup_state().await;
-        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+        let ip = "127.0.0.1".to_string();
         let now = Utc::now();
 
         for i in 0..LIMIT {
             let timestamp = now + chrono::Duration::milliseconds(i as i64 * 1000);
-            assert!(rate_limit(state.clone(), ip, "/test", timestamp)
+            assert!(rate_limit(state.clone(), ip.clone(), "/test", timestamp)
                 .await
                 .is_ok());
         }
@@ -360,11 +377,11 @@ mod tests {
     #[tokio::test]
     async fn test_large_volume_stress() {
         let state = setup_state().await;
-        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+        let ip = "127.0.0.1".to_string();
         let now = Utc::now();
 
         for _ in 0..10000 {
-            let result = rate_limit(state.clone(), ip, "/test", now).await;
+            let result = rate_limit(state.clone(), ip.clone(), "/test", now).await;
             if result.is_err() {
                 break;
             }
@@ -374,14 +391,18 @@ mod tests {
     #[tokio::test]
     async fn test_concurrent_requests() {
         let state = setup_state().await;
-        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+        let ip = "127.0.0.1".to_string();
 
         let mut tasks = JoinSet::new();
 
+        let ip_clone = ip.clone();
         for _ in 0..LIMIT {
             let clone_state = state.clone();
+            let ip_clone = ip_clone.clone();
+
             tasks.spawn(async move {
-                let _ = rate_limit(clone_state.clone(), ip.clone(), "/test", Utc::now()).await;
+                let _ =
+                    rate_limit(clone_state.clone(), ip_clone.clone(), "/test", Utc::now()).await;
             });
         }
 
@@ -396,8 +417,8 @@ mod tests {
     #[tokio::test]
     async fn test_clear_ips_removes_stale_ips() {
         let state = setup_state().await;
-        let ip1 = IpAddr::from_str("127.0.0.1").unwrap();
-        let ip2 = IpAddr::from_str("192.168.0.1").unwrap();
+        let ip1 = "127.0.0.1".to_string();
+        let ip2 = "192.168.0.1".to_string();
         let now = Utc::now();
 
         // Add stale IP (no requests in the last 5 seconds)
@@ -410,7 +431,7 @@ mod tests {
             .lock()
             .await
             .insert(
-                ip1,
+                ip1.clone(),
                 Arc::new(Mutex::new(VecDeque::from(vec![
                     now - WINDOW_SIZE - Duration::seconds(1),
                 ]))),
@@ -426,7 +447,7 @@ mod tests {
             .lock()
             .await
             .insert(
-                ip2,
+                ip2.clone(),
                 Arc::new(Mutex::new(VecDeque::from(vec![now - Duration::seconds(3)]))),
             );
 
@@ -436,14 +457,14 @@ mod tests {
         // Verify results
         let state = state.lock().await;
         let endpoints = state.endpoints.get("/test").unwrap().lock().await;
-        assert!(!endpoints.contains_key(&ip1));
+        assert!(!endpoints.contains_key(&ip1.clone()));
         assert!(endpoints.contains_key(&ip2));
     }
 
     #[tokio::test]
     async fn test_clear_ips_no_stale_ips() {
         let state = setup_state().await;
-        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+        let ip = "127.0.0.1".to_string();
         let now = Utc::now();
 
         // Add an active IP
@@ -456,7 +477,7 @@ mod tests {
             .lock()
             .await
             .insert(
-                ip,
+                ip.clone(),
                 Arc::new(Mutex::new(VecDeque::from(vec![now - Duration::seconds(1)]))),
             );
 
@@ -472,8 +493,8 @@ mod tests {
     #[tokio::test]
     async fn test_clear_ips_all_stale_ips() {
         let state = setup_state().await;
-        let ip1 = IpAddr::from_str("127.0.0.1").unwrap();
-        let ip2 = IpAddr::from_str("192.168.0.1").unwrap();
+        let ip1 = "127.0.0.1".to_string();
+        let ip2 = "192.168.0.1".to_string();
         let now = Utc::now();
 
         // Add stale IPs
@@ -486,7 +507,7 @@ mod tests {
             .lock()
             .await
             .insert(
-                ip1,
+                ip1.clone(),
                 Arc::new(Mutex::new(VecDeque::from(vec![
                     now - WINDOW_SIZE - Duration::seconds(1),
                 ]))),
@@ -499,7 +520,7 @@ mod tests {
             .or_default()
             .lock()
             .await
-            .insert(ip2, Arc::new(Mutex::new(VecDeque::new()))); // Empty queue
+            .insert(ip2.clone(), Arc::new(Mutex::new(VecDeque::new()))); // Empty queue
 
         // Run clear_ips
         state.lock().await.clear_ips().await;
@@ -514,7 +535,7 @@ mod tests {
     #[tokio::test]
     async fn test_clear_ips_concurrent_access() {
         let state = setup_state().await;
-        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+        let ip = "127.0.0.1".to_string();
         let now = Utc::now();
 
         // Add an active IP
@@ -527,7 +548,7 @@ mod tests {
             .lock()
             .await
             .insert(
-                ip,
+                ip.clone(),
                 Arc::new(Mutex::new(VecDeque::from(vec![now - Duration::seconds(1)]))),
             );
 
@@ -538,8 +559,9 @@ mod tests {
         });
 
         let state_clone = state.clone();
+        let ip_clone = ip.clone();
         let rate_limit_task = tokio::spawn(async move {
-            rate_limit(state_clone, ip, "/test", Utc::now())
+            rate_limit(state_clone, ip_clone.clone(), "/test", Utc::now())
                 .await
                 .unwrap();
         });
@@ -550,6 +572,6 @@ mod tests {
         // Verify the IP still exists after concurrent operations
         let state = state.lock().await;
         let endpoints = state.endpoints.get("/test").unwrap().lock().await;
-        assert!(endpoints.contains_key(&ip));
+        assert!(endpoints.contains_key(&ip.to_string()));
     }
 }

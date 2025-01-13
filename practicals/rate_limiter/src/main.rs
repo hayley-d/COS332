@@ -1,5 +1,4 @@
-use std::net::IpAddr;
-use std::str::FromStr;
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use chrono::Utc;
@@ -25,10 +24,10 @@ impl RateLimiter for RateLimiterService {
         let request = request.into_inner();
 
         let timestamp = Utc::now();
-
+        println!("IP address: {}", &request.ip_address);
         let result = rate_limit(
             self.state.clone(),
-            IpAddr::from_str(&request.ip_address).unwrap(),
+            request.ip_address,
             &request.endpoint,
             timestamp,
         )
@@ -49,7 +48,7 @@ impl RateLimiter for RateLimiterService {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "[::1]:50051".parse()?;
+    let addr = SocketAddr::from(([127, 0, 0, 1], 50051));
 
     let state: Arc<Mutex<State>> = State::new();
 
