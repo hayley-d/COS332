@@ -173,3 +173,54 @@
 2025-01-10 03:25:12.552 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
 2025-01-10 03:25:15.890 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:273 - TLS handshake successful with 127.0.0.1:60358
 2025-01-10 03:25:15.891 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:142 - POST /login from 
+2025-01-13 16:46:23.732 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:188 - Server Started
+2025-01-13 16:46:23.732 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-01-13 16:46:23.733 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-13 16:46:35.472 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:188 - Server Started
+2025-01-13 16:46:35.472 [INFO] main src/socket.rs:67 - Server started listening on port 7879
+2025-01-13 16:46:35.473 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-13 16:47:38.054 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:229 - Server shutdown signal recieved.
+2025-01-13 16:51:18.897 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:188 - Server Started
+2025-01-13 16:51:18.897 [INFO] main src/socket.rs:67 - Server started listening on port 7879
+2025-01-13 16:51:18.898 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-13 16:51:26.441 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:188 - Server Started
+2025-01-13 16:51:26.441 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-01-13 16:51:26.441 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-13 16:57:01.369 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:188 - Server Started
+2025-01-13 16:57:01.369 [INFO] main src/socket.rs:67 - Server started listening on port 7879
+2025-01-13 16:57:01.370 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-13 16:57:03.289 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:188 - Server Started
+2025-01-13 16:57:03.289 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-01-13 16:57:03.290 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-13 16:58:00.326 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:272 - TLS handshake successful with 127.0.0.1:53672
+2025-01-13 16:58:00.327 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_3/src/api.rs:55 - GET / from status 200
+2025-01-13 17:11:38.924 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:188 - Server Started
+2025-01-13 17:11:38.924 [INFO] main src/socket.rs:67 - Server started listening on port 7879
+2025-01-13 17:11:38.925 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-13 17:11:41.278 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:188 - Server Started
+2025-01-13 17:11:41.278 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-01-13 17:11:41.279 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-13 17:19:56.940 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:188 - Server Started
+2025-01-13 17:19:56.940 [INFO] main src/socket.rs:67 - Server started listening on port 7879
+2025-01-13 17:19:56.941 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-13 17:19:58.893 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:188 - Server Started
+2025-01-13 17:19:58.893 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-01-13 17:19:58.893 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-13 17:25:26.971 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:188 - Server Started
+2025-01-13 17:25:26.971 [INFO] main src/socket.rs:67 - Server started listening on port 7879
+2025-01-13 17:25:26.972 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-13 17:25:28.937 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:188 - Server Started
+2025-01-13 17:25:28.937 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-01-13 17:25:28.938 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-13 17:28:24.978 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:188 - Server Started
+2025-01-13 17:28:24.978 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-01-13 17:28:24.979 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-13 17:28:27.515 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:188 - Server Started
+2025-01-13 17:28:27.515 [INFO] main src/socket.rs:67 - Server started listening on port 7879
+2025-01-13 17:28:27.515 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-13 17:44:21.830 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:188 - Server Started
+2025-01-13 17:44:21.830 [INFO] main src/socket.rs:67 - Server started listening on port 7879
+2025-01-13 17:44:21.831 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-13 17:44:23.726 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/server.rs:188 - Server Started
+2025-01-13 17:44:23.726 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-01-13 17:44:23.727 [INFO] main /home/hayley/Documents/COS332/practicals/practical_3/src/socket.rs:96 - TLS certificate and keys configured

@@ -27,22 +27,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
 
     let state: Arc<Mutex<LoadBalancer>> = Arc::new(Mutex::new(LoadBalancer::new(&mut nodes).await));
 
-    let graceful = Arc::new(Notify::new());
-    let notify_clone = graceful.clone();
-    let mut signal = std::pin::pin!(shutdown_signal());
+    let shutdown: Arc<Notify> = Arc::new(Notify::new());
+
+    let shutdown_signal = shutdown.clone();
+
     tokio::spawn(async move {
-        shutdown_signal().await;
-        notify_clone.notify_waiters();
+        if let Err(_) = tokio::signal::ctrl_c().await {
+            eprintln!("Failed to listen for shutdown signal");
+            std::process::exit(1);
+        } else {
+            shutdown_signal.notify_one();
+            println!("Tasks complete, server shutdown started");
+            std::process::exit(0);
+        }
     });
 
     tokio::select! {
         _ = reverse_proxy(listener,state.clone()) => {
             println!("loop ended");
         },
-        _ = &mut signal => {
-            eprintln!("graceful shutdown signal recieved");
-        }
-        _ = graceful.notified() => {
+        _ = shutdown.notified() => {
                 eprintln!("Graceful shutdown initiated");
                 std::process::exit(0);
             }
@@ -63,15 +67,23 @@ async fn reverse_proxy(listener: TcpListener, state: Arc<Mutex<LoadBalancer>>) {
                         return;
                     }
 
-                    let mut request: http::Request<Vec<u8>> =
-                        match buffer_to_request(buffer[..bytes_read].to_vec()) {
-                            Ok(request) => request,
-                            Err(e) => {
-                                eprintln!("Failed to parse request: {}", e);
-                                send_error_response(400, &mut stream).await;
-                                return;
-                            }
-                        };
+                    println!(
+                        "{}",
+                        String::from_utf8(buffer[..bytes_read].to_vec()).unwrap()
+                    );
+
+                    let mut request: http::Request<Vec<u8>> = match buffer_to_request(
+                        buffer[..bytes_read].to_vec(),
+                        client_address.to_string(),
+                        0,
+                    ) {
+                        Ok(request) => request,
+                        Err(e) => {
+                            eprintln!("Failed to parse request: {}", e);
+                            send_error_response(400, &mut stream).await;
+                            return;
+                        }
+                    };
 
                     // Ignore favicon.ico requests
                     if request.uri().path() == "/favicon.ico" {
