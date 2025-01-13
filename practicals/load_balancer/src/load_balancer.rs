@@ -2,13 +2,8 @@ pub mod load_balancer {
     use crate::rate_limiter_proto::rate_limiter_client::RateLimiterClient;
     use crate::rate_limiter_proto::RateLimitRequest;
     use crate::request::Request;
-    use hyper::body::Body;
-    use hyper::client::conn::http1::Builder;
-    use hyper_util::client::legacy::Client;
-    use hyper_util::rt::TokioIo;
-    use rand::Rng;
     use std::collections::{BTreeMap, VecDeque};
-    use std::hash::{BuildHasher, DefaultHasher, Hash, Hasher};
+    use std::hash::{DefaultHasher, Hash, Hasher};
     use std::time::Duration;
     use tokio::io::AsyncWriteExt;
     use tokio::net::TcpStream;
@@ -19,7 +14,7 @@ pub mod load_balancer {
 
     /// Node represents a replica in the distributed system.
     /// `address` is a url address for the replica
-    /// `weight` is the weight dynamically calculated based on node performance.
+    #[derive(Debug, PartialEq, Eq, Clone)]
     pub struct Node {
         pub address: String,
     }
@@ -31,42 +26,9 @@ pub mod load_balancer {
         }
     }
 
-    impl Clone for Node {
-        fn clone(&self) -> Self {
-            Node {
-                address: self.address.clone(),
-            }
-        }
-    }
-
-    impl Eq for Node {}
-
-    impl PartialEq for Node {
-        fn eq(&self, other: &Self) -> bool {
-            self.address == other.address
-        }
-    }
-
-    impl PartialOrd for Node {
-        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-            Some(self.cmp(&other))
-        }
-    }
-
-    impl Ord for Node {
-        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-            if self.address < other.address {
-                std::cmp::Ordering::Less
-            } else {
-                std::cmp::Ordering::Greater
-            }
-        }
-    }
-
     pub struct LoadBalancer {
         pub buffer: VecDeque<Request>,
         pub nodes: Vec<Node>,
-        pub available_nodes: u32,
         pub lamport_timestamp: u64,
         pub ring: BTreeMap<u64, String>,
     }
@@ -85,6 +47,7 @@ pub mod load_balancer {
                 request_id: request.request_id.to_string(),
             };
 
+            // send request to rate limiter
             let mut client: RateLimiterClient<Channel> =
                 match RateLimiterClient::connect(RATELIMITERADDRESS.to_string().clone()).await {
                     Ok(c) => c,
@@ -112,15 +75,19 @@ pub mod load_balancer {
             return false;
         }
 
-        pub async fn new(available_nodes: u32, addresses: &mut Vec<String>) -> Self {
+        pub async fn new(addresses: &mut Vec<String>) -> Self {
             let mut ring = BTreeMap::new();
 
+            // creates virtula nodes
             for node in addresses.clone() {
-                for i in 0..available_nodes {
+                let hash = Self::add_node(&node);
+                ring.insert(hash, node.clone());
+
+                /*for i in 0..available_nodes {
                     let virtual_node = format!("{}_{}", node, i);
                     let hash = Self::add_node(&virtual_node);
                     ring.insert(hash, node.clone());
-                }
+                }*/
             }
 
             let mut nodes: Vec<Node> = Vec::new();
@@ -133,12 +100,12 @@ pub mod load_balancer {
             LoadBalancer {
                 buffer: VecDeque::new(),
                 nodes,
-                available_nodes,
                 lamport_timestamp: 0,
                 ring,
             }
         }
 
+        // calculates the hash of the node address for the ring
         pub fn add_node<T: Hash>(address: &T) -> u64 {
             let mut hasher = DefaultHasher::new();
             address.hash(&mut hasher);
@@ -178,12 +145,14 @@ pub mod load_balancer {
         }
     }
 
+    /// Sends a bytes array to the assigned node in the system
     async fn send_request(request: Vec<u8>, uri: String) -> Result<(), Box<dyn std::error::Error>> {
         let mut stream = TcpStream::connect(uri).await?;
         stream.write_all(&request).await?;
         Ok(())
     }
 
+    /// Convert the http::Request struct into a byte array to send over the network
     async fn serialize_request(
         request: http::Request<Vec<u8>>,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
