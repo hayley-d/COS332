@@ -94,13 +94,17 @@ async fn reverse_proxy(listener: TcpListener, state: Arc<Mutex<LoadBalancer>>) {
                         );
 
                     let mut state = state.lock().await;
-                    if state.insert(request).await {
-                        // request got added
-                        let _ = state.distribute().await;
-                    } else {
-                        // request not added respond status 429 too many requests
-                        send_error_response(429, &mut stream).await;
-                    }
+
+                    let response = match state.distribute(request).await {
+                        Ok(r) => r,
+                        Err(_) => "HTTP/1.1 429 Too Many Requests\r\nContent-Length: 0\r\n\r\n"
+                            .to_string()
+                            .into_bytes(),
+                    };
+
+                    if (stream.write_all(&response).await).is_err() {
+                        eprintln!("Failed to responed to client");
+                    };
                 }
             });
         }
