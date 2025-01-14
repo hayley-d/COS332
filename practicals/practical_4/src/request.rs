@@ -4,6 +4,7 @@ pub mod http_request {
     use core::str;
     use log::error;
     use std::fmt::Display;
+    use uuid::Uuid;
 
     #[derive(Debug)]
     pub struct Clock {
@@ -72,7 +73,7 @@ pub mod http_request {
     }
 
     pub struct Request {
-        pub request_id: i64,
+        pub request_id: Uuid,
         pub client_ip: String,
         pub headers: Vec<String>,
         pub body: String,
@@ -96,11 +97,7 @@ pub mod http_request {
             println!("{}{}", self.method.to_string().magenta(), self.uri.cyan());
         }
 
-        pub fn new(
-            buffer: &[u8],
-            client_ip: String,
-            request_id: i64,
-        ) -> Result<Request, ErrorType> {
+        pub fn new(buffer: &[u8], client_ip: String) -> Result<Request, ErrorType> {
             // unwrap is safe as request has been parsed for any issues before this is called
             let request = String::from_utf8(buffer.to_vec()).unwrap();
 
@@ -140,7 +137,7 @@ pub mod http_request {
             }
 
             Ok(Request {
-                request_id,
+                request_id: Uuid::new_v4(),
                 client_ip,
                 headers,
                 body,
