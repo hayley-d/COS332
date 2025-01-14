@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use tokio::fs;
 use uuid::Uuid;
 
@@ -17,12 +18,12 @@ impl PartialEq for Question {
 
 impl Question {
     pub fn new(question: String) -> Self {
-        return Question {
+        Question {
             question_id: Uuid::new_v4(),
             question,
             options: Vec::new(),
             answers: Vec::new(),
-        };
+        }
     }
 
     pub fn add_option(&mut self, option: String, is_answer: bool) {
@@ -38,7 +39,7 @@ impl Question {
             let formatted_option = format!("({}) {}\n", i + 1, option);
             output.push_str(formatted_option.as_str());
         }
-        return output;
+        output
     }
 
     pub fn check_answer(&self, answers: Vec<usize>) -> String {
@@ -60,10 +61,10 @@ impl Question {
         } else {
             output.push_str(format!("Correct!\n").as_str());
         }
-        return output;
+        output
     }
 
-    pub async fn parse_file() -> Vec<Question> {
+    pub async fn parse_file() -> HashMap<Uuid, Question> {
         let file = match fs::read_to_string("file.txt").await {
             Ok(f) => f,
             Err(_) => {
@@ -72,7 +73,7 @@ impl Question {
             }
         };
 
-        let mut questions: Vec<Question> = Vec::new();
+        let mut questions: HashMap<Uuid, Question> = HashMap::new();
 
         let lines: Vec<String> = file.lines().map(|s| s.to_string()).collect();
         let mut i: usize = 0;
@@ -89,7 +90,8 @@ impl Question {
                         let marker: &Option<char> = &lines[j].chars().nth(0);
                         match marker {
                             Some('?') => {
-                                questions.push(question);
+                                questions.insert(question.question_id, question);
+
                                 break;
                             }
                             Some('-') => {
@@ -120,10 +122,10 @@ impl Question {
             }
         }
 
-        return questions;
+        questions
     }
 
-    fn generate_html_page(&self) -> String {
+    pub fn generate_html_page(&self) -> Vec<u8> {
         let options = self
             .options
             .iter()
@@ -196,6 +198,6 @@ impl Question {
 </html>
 "#,
             self.question, self.question_id, options
-        )
+        ).as_bytes().to_vec()
     }
 }

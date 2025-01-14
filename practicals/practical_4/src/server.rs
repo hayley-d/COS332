@@ -2,24 +2,32 @@
 //! This server demonstrates concurrency management, secure password storage and itergration with
 //! external services like PostgreSQL and Redis.
 use crate::api::question_api::handle_response;
+use crate::question::Question;
 use crate::request::http_request::Request;
 use crate::response::http_response::Response;
 use crate::socket::connection::{get_listener, load_tls_config};
 use colored::Colorize;
 use log::{error, info};
+use std::collections::HashMap;
 use std::env;
 use std::str::from_utf8;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::{Notify, Semaphore};
+use tokio::sync::{Mutex, Notify, Semaphore};
 use tokio::time::timeout;
 use tokio_rustls::server::TlsStream;
 use tokio_rustls::TlsAcceptor;
+use uuid::Uuid;
 
 /// The default port used by the server if none is specified.
 const DEFAULT_PORT: u16 = 7878;
+
+pub struct State {
+    pub questions: HashMap<Uuid, Question>,
+    pub ids: Vec<Uuid>,
+}
 
 /// Sets up the server by initializing the connections and configuring logging.
 ///
@@ -39,8 +47,17 @@ pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
 
     print_server_info(port);
 
+    let questions: HashMap<Uuid, Question> = Question::parse_file().await;
+    let mut ids: Vec<Uuid> = Vec::new();
+
+    for key in questions.keys() {
+        ids.push(key.clone());
+    }
+
+    let state: Arc<Mutex<State>> = Arc::new(Mutex::new(State { questions, ids }));
+
     info!(target: "request_logger","Server Started");
-    let _ = start_server(port).await;
+    let _ = start_server(port, state.clone()).await;
     Ok(())
 }
 
@@ -51,7 +68,10 @@ pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
 ///
 /// # Returns
 /// A `Result` object with either and Ok(()) or an Err(Box<dyn std::error::Error>)
-async fn start_server(port: u16) -> Result<(), Box<dyn std::error::Error>> {
+async fn start_server(
+    port: u16,
+    questions: Arc<Mutex<State>>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let listener: TcpListener = get_listener(port)?;
 
     let tls_config = load_tls_config().await?;
@@ -77,7 +97,7 @@ async fn start_server(port: u16) -> Result<(), Box<dyn std::error::Error>> {
     });
 
     tokio::select! {
-        _ = run_server(listener,acceptor,connections.clone())=> {
+        _ = run_server(listener,acceptor,connections.clone(),questions.clone())=> {
         }
         _ = shutdown.notified() => {
                 info!(target: "request_logger","Server shutdown signal recieved.");
@@ -94,7 +114,12 @@ async fn start_server(port: u16) -> Result<(), Box<dyn std::error::Error>> {
 /// - `listener`: A TcpListener
 /// - `acceptor`: A TlsAcceptor to handle the Tls hanshake.
 /// - `connections`: A Semaphore for limiting the amout of concurrent connections.
-async fn run_server(listener: TcpListener, acceptor: TlsAcceptor, connections: Arc<Semaphore>) {
+async fn run_server(
+    listener: TcpListener,
+    acceptor: TlsAcceptor,
+    connections: Arc<Semaphore>,
+    questions: Arc<Mutex<State>>,
+) {
     loop {
         let connections = connections.clone();
 
@@ -116,11 +141,13 @@ async fn run_server(listener: TcpListener, acceptor: TlsAcceptor, connections: A
 
         let acceptor = acceptor.clone();
 
+        let questions = Arc::clone(&questions);
+
         let handle = tokio::spawn(async move {
             if let Ok(tls_stream) = acceptor.accept(stream).await {
                 info!(target: "request_logger","TLS handshake successful with {}", address);
 
-                let _ = handle_connection(tls_stream, address.to_string()).await;
+                let _ = handle_connection(tls_stream, address.to_string(), questions.clone()).await;
             } else {
                 error!(target: "error_logger","TLS handshake failed with {}", address);
             }
@@ -144,6 +171,7 @@ async fn run_server(listener: TcpListener, acceptor: TlsAcceptor, connections: A
 async fn handle_connection(
     mut stream: TlsStream<TcpStream>,
     address: String,
+    questions: Arc<Mutex<State>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     loop {
         let mut buffer = [0; 4096];
@@ -182,7 +210,7 @@ async fn handle_connection(
             return Ok(());
         }
 
-        let mut response: Response = handle_response(request).await;
+        let mut response: Response = handle_response(request, questions.clone()).await;
 
         stream.write_all(&response.to_bytes()).await?;
         stream.flush().await?;
