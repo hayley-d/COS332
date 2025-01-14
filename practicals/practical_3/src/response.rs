@@ -27,7 +27,7 @@ impl MyDefault for Response {
 
         response.add_body(read_file_to_bytes("static/index.html").await);
 
-        return response;
+        response
     }
 }
 
@@ -40,18 +40,15 @@ impl Response {
         // Response line: HTTP/1.1 <status code>
         let response_line: String = format!("{} {}\r\n", self.protocol, self.code);
 
-        let body: Vec<u8>;
-
-        if !self.compression {
-            body = self.body.clone();
+        let body: Vec<u8> = if !self.compression {
+            self.body.clone()
         } else {
             let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
             encoder
                 .write_all(&self.body)
                 .expect("Failed to write body to gzip encoder");
-            body = encoder.finish().expect("Failed to finish gzip compression");
-            //self.add_header(String::from("Content-Encoding"), String::from("gzip"));
-        }
+            encoder.finish().expect("Failed to finish gzip compression")
+        };
 
         self.add_header(String::from("Content-Length"), body.len().to_string());
 
@@ -69,7 +66,7 @@ impl Response {
         response.extend_from_slice(b"\r\n\r\n");
         response.extend_from_slice(&body);
 
-        return response;
+        response
     }
 
     pub fn add_body(&mut self, body: Vec<u8>) {
@@ -114,19 +111,19 @@ impl Response {
             });
         }
 
-        return Response {
+        Response {
             protocol,
             code,
             content_type,
             body,
             compression,
             headers,
-        };
+        }
     }
 
     pub fn code(mut self, code: HttpCode) -> Self {
         self.code = code;
-        return self;
+        self
     }
 
     pub fn add_code(&mut self, code: HttpCode) {
@@ -135,12 +132,12 @@ impl Response {
 
     pub fn content_type(mut self, content_type: ContentType) -> Self {
         self.content_type = content_type;
-        return self;
+        self
     }
 
     pub fn body(mut self, body: Vec<u8>) -> Self {
         self.body = body;
-        return self;
+        self
     }
 
     pub fn compression(mut self, compression: bool) -> Self {
@@ -165,6 +162,6 @@ impl Response {
                 self.headers.remove(index as usize);
             }
         }
-        return self;
+        self
     }
 }

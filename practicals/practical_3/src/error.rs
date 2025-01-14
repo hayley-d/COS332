@@ -3,6 +3,7 @@ pub mod my_errors {
     use std::io::Write;
     use std::sync::Arc;
 
+    #[derive(PartialEq, Eq)]
     pub enum ErrorType {
         SocketError(String),
         ReadError(String),
@@ -135,9 +136,9 @@ pub mod my_errors {
                 .append(true)
                 .open(log_path)
                 .expect("Failed to open log file");
-            return Logger {
+            Logger {
                 log_file: Arc::new(std::sync::Mutex::new(file)),
-            };
+            }
         }
 
         pub fn log_error(&self, error: &ErrorType) {
@@ -148,7 +149,7 @@ pub mod my_errors {
         }
     }
 
-    impl PartialEq for ErrorType {
+    /*impl PartialEq for ErrorType {
         fn eq(&self, other: &Self) -> bool {
             match self {
                 ErrorType::SocketError(_) => match other {
@@ -185,5 +186,5 @@ pub mod my_errors {
                 },
             }
         }
-    }
+    }*/
 }

@@ -65,7 +65,7 @@ pub mod connection {
             }
 
             info!(target:"request_logger","Server started listening on port {}", port);
-            return Ok(socket_fd);
+            Ok(socket_fd)
         }
     }
 
@@ -94,13 +94,13 @@ pub mod connection {
             .with_single_cert(certs, key)?;
 
         info!(target: "request_logger","TLS certificate and keys configured");
-        return Ok(config);
+        Ok(config)
     }
 
     /// Converts a raw libc socket into a tokio TcpListener
     pub fn get_listener(port: u16) -> Result<TcpListener, Box<dyn std::error::Error>> {
         let raw_fd = create_raw_socket(port)?;
         let listener: StdTcpListener = unsafe { StdTcpListener::from_raw_fd(raw_fd) };
-        return Ok(TcpListener::from_std(listener)?);
+        Ok(TcpListener::from_std(listener)?)
     }
 }

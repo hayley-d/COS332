@@ -1,12 +1,18 @@
+//! A Secure, multi-threaded HTTP/1.1 server implementation using TLS for secure communication.
+//! This server demonstrates concurrency management, secure password storage and itergration with
+//! external services like PostgreSQL and Redis.
+use crate::redis_connection::{get_cached_content, read_and_cache_page, set_up_redis};
+use crate::response::Response;
+use crate::socket::connection::{get_listener, load_tls_config};
+use crate::{handle_response, Clock, ErrorType, Request};
 use argon2::password_hash::SaltString;
-//use argon2::PasswordHash;
-use argon2::{Argon2, PasswordHasher /*, PasswordVerifier*/};
+use argon2::{Argon2, PasswordHasher};
 use colored::Colorize;
 use dotenv::dotenv;
 use log::{error, info};
 use rand::rngs::OsRng;
 use std::env;
-use std::path::PathBuf;
+use std::path::Path;
 use std::str::from_utf8;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -20,13 +26,10 @@ use tokio_rustls::server::TlsStream;
 use tokio_rustls::TlsAcceptor;
 use uuid::Uuid;
 
-use crate::redis_connection::{get_cached_content, read_and_cache_page, set_up_redis};
-use crate::response::Response;
-use crate::socket::connection::{get_listener, load_tls_config};
-use crate::{handle_response, Clock, ErrorType, Request};
-
+/// The default port used by the server if none is specified.
 const DEFAULT_PORT: u16 = 7878;
 
+/// Shared state structure holding connecions to Redis, PostgreSQL and a logical clock.
 pub struct SharedState {
     pub redis_connection: redis::Connection,
     pub clock: Clock,
@@ -34,26 +37,38 @@ pub struct SharedState {
 }
 
 impl SharedState {
+    /// Creates a new `SharedState` instance.
     pub fn new(redis_connection: redis::Connection, clock: Clock, client: Client) -> Self {
-        return SharedState {
+        SharedState {
             redis_connection,
             clock,
             client,
-        };
+        }
     }
 
+    /// Increments the logical clock value.
     pub async fn increment_clock(&mut self) -> i64 {
         self.clock.increment_time()
     }
 
+    /// Retrieves the cached content for a given route name from Redis.
     pub async fn get_cached_content(&mut self, route_name: &str) -> Option<Vec<u8>> {
         get_cached_content(&mut self.redis_connection, route_name).await
     }
 
-    pub async fn read_and_cache_page(&mut self, path: &PathBuf, route_name: &str) -> Vec<u8> {
+    /// Reads and caches a page in Redis based on the path and route name.
+    pub async fn read_and_cache_page(&mut self, path: &Path, route_name: &str) -> Vec<u8> {
         read_and_cache_page(&mut self.redis_connection, path, route_name).await
     }
 
+    /// Adds a new user to the PostgreSQL database, hashing their password.
+    ///
+    /// # Arguments
+    /// - `username`: The user's username
+    /// - `password`: The user's plain text password.
+    ///
+    /// # Returns
+    /// A `Response` object with either Ok(session_id) or an Err(Box<dyn std::error::Error>)
     pub async fn add_user(
         &mut self,
         username: String,
@@ -72,9 +87,10 @@ impl SharedState {
             .execute(&query, &[&username, &hash, &session_id])
             .await?;
 
-        return Ok(session_id);
+        Ok(session_id)
     }
 
+    /// Finds an existing user by username and returns their session ID.
     pub async fn find_user(
         &mut self,
         username: String,
@@ -87,45 +103,36 @@ impl SharedState {
         let row = self.client.query_one(&query, &[&username]).await?;
 
         if row.is_empty() {
-            return Err(Box::new(ErrorType::ReadError(format!(
-                "Failed to find user"
-            ))));
+            return Err(Box::new(ErrorType::ReadError(
+                "Failed to find user".to_string(),
+            )));
         }
 
         let session_id: Uuid = row.get(4);
 
-        return Ok(session_id);
+        Ok(session_id)
     }
 
+    /// Hashes a password using the Argon2 algorithm and a random salt.
     fn hash_password(password: &str) -> Result<String, Box<dyn std::error::Error>> {
         let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
 
-        return match argon2.hash_password(&password.as_bytes(), salt.as_salt()) {
+        match argon2.hash_password(password.as_bytes(), salt.as_salt()) {
             Ok(hash) => Ok(hash.to_string()),
             Err(_) => {
                 error!(target: "error_logger","Failed to create new user");
                 std::process::exit(1);
             }
-        };
+        }
     }
-
-    /*fn validate_password(password: &str, hash: &str) -> Result<(), ()> {
-        let parsed = match PasswordHash::new(hash) {
-            Ok(p) => p,
-            Err(_) => return Err(()),
-        };
-
-        return match Argon2::default().verify_password(password.as_bytes(), &parsed) {
-            Ok(_) => Ok(()),
-            Err(_) => Err(()),
-        };
-    }*/
 }
 
+/// Sets up the server by initializing the connections and configuring logging.
+///
+/// # Returns
+/// A `Result` object with either and Ok(()) or an Err(Box<dyn std::error::Error>)
 pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
-    //let redis_child: Child = start_redis_server().await;
-
     println!("{}{}", ">> ".red().bold(), "Redis working: ".cyan(),);
 
     let port: u16 = match env::args()
@@ -187,10 +194,17 @@ pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
 
     info!(target: "request_logger","Server Started");
     let _ = start_server(port, state).await;
-    //let _ = stop_redis_server(redis_child).await;
     Ok(())
 }
 
+/// Starts the server, accepting incoming connections and managing their lifecycles.
+///
+/// # Arguments
+/// - `port`: The port the server is running on.
+/// - `state`: A shared, thread-safe state used for managing server data and caching.
+///
+/// # Returns
+/// A `Result` object with either and Ok(()) or an Err(Box<dyn std::error::Error>)
 async fn start_server(
     port: u16,
     state: Arc<Mutex<SharedState>>,
@@ -209,7 +223,7 @@ async fn start_server(
     let shutdown_flag = is_shutting_down.clone();
 
     tokio::spawn(async move {
-        if let Err(_) = tokio::signal::ctrl_c().await {
+        if tokio::signal::ctrl_c().await.is_err() {
             eprintln!("Failed to listen for shutdown signal");
             std::process::exit(1);
         } else {
@@ -231,9 +245,17 @@ async fn start_server(
         }
     }
     while connections.clone().available_permits() != 15 {}
-    return Ok(());
+    Ok(())
 }
 
+/// Accepts connections from incoming clients and completes the TLS hanshake.
+///
+/// # Arguments
+/// - `listener`: A TcpListener
+/// - `acceptor`: A TlsAcceptor to handle the Tls hanshake.
+/// - `connections`: A Semaphore for limiting the amout of concurrent connections.
+/// - `is_shutdown`: A thread-safe `AtomicBool` to indicate if the server is in shutdown mode.
+/// - `state`: A shared, thread-safe state used for managing server data and caching.
 async fn run_server(
     listener: TcpListener,
     acceptor: TlsAcceptor,
@@ -277,14 +299,21 @@ async fn run_server(
             }
 
             drop(permit);
-
-            return;
         });
 
         handle.await.unwrap();
     }
 }
 
+/// Handles incoming connections, including the TLS handshake and request processing.
+///
+/// # Arguments
+/// - `stream`: A mutable TlsStream.
+/// - `address`: The address of the client connected to the server.
+/// - `state`: A shared, thread-safe state used for managing server data and caching.
+///
+/// # Returns
+/// A `Result` object with either and Ok(()) or an Err(Box<dyn std::error::Error>)
 async fn handle_connection(
     mut stream: TlsStream<TcpStream>,
     address: String,
@@ -335,10 +364,13 @@ async fn handle_connection(
 
         stream.write_all(&response.to_bytes()).await?;
         stream.flush().await?;
-        return Ok(());
     }
 }
 
+/// Prints server information on startup.
+///
+/// # Arguments
+/// - `port`: The port the server is currently running on.
 fn print_server_info(port: u16) {
     println!("{}", "Server started:".cyan());
 

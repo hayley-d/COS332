@@ -11,14 +11,20 @@ pub struct Clock {
 
 impl Clock {
     pub fn new() -> Self {
-        return Clock {
+        Clock {
             lamport_timestamp: 0,
-        };
+        }
     }
     pub fn increment_time(&mut self) -> i64 {
         let temp: i64 = self.lamport_timestamp;
         self.lamport_timestamp += 1;
-        return temp;
+        temp
+    }
+}
+
+impl Default for Clock {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -127,14 +133,14 @@ impl Request {
             }
         }
 
-        return Ok(Request {
+        Ok(Request {
             request_id,
             client_ip,
             headers,
             body,
             method,
             uri,
-        });
+        })
     }
 
     pub fn is_compression_supported(&self) -> bool {
@@ -150,30 +156,28 @@ impl Request {
                     // multiple compression types
                     let mut encodings: Vec<&str> =
                         header.split(", ").map(|m| m.trim()).collect::<Vec<&str>>();
-                    encodings[0] = &encodings[0].split_whitespace().collect::<Vec<&str>>()[1];
+                    encodings[0] = encodings[0].split_whitespace().collect::<Vec<&str>>()[1];
 
                     for encoding in encodings {
                         if encoding == "gzip" || encoding.contains("gzip") {
                             return true;
                         }
                     }
-                } else {
-                    if header
-                        .to_lowercase()
-                        .split_whitespace()
-                        .collect::<Vec<&str>>()[1]
-                        == "gzip"
-                    {
-                        return true;
-                    }
+                } else if header
+                    .to_lowercase()
+                    .split_whitespace()
+                    .collect::<Vec<&str>>()[1]
+                    == "gzip"
+                {
+                    return true;
                 }
             }
         }
-        return false;
+        false
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum HttpCode {
     Ok,
     Created,
@@ -202,7 +206,7 @@ impl Display for HttpCode {
     }
 }
 
-impl PartialEq for HttpCode {
+/*impl PartialEq for HttpCode {
     fn eq(&self, other: &Self) -> bool {
         match self {
             HttpCode::Ok => match other {
@@ -243,9 +247,9 @@ impl PartialEq for HttpCode {
             },
         }
     }
-}
+}*/
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum HttpMethod {
     GET,
     POST,
@@ -278,33 +282,6 @@ impl Display for HttpMethod {
             HttpMethod::PUT => write!(f, "PUT"),
             HttpMethod::PATCH => write!(f, "PATCH"),
             HttpMethod::DELETE => write!(f, "DELETE"),
-        }
-    }
-}
-
-impl PartialEq for HttpMethod {
-    fn eq(&self, other: &Self) -> bool {
-        match self {
-            HttpMethod::GET => match other {
-                HttpMethod::GET => true,
-                _ => false,
-            },
-            HttpMethod::POST => match other {
-                HttpMethod::POST => true,
-                _ => false,
-            },
-            HttpMethod::PUT => match other {
-                HttpMethod::PUT => true,
-                _ => false,
-            },
-            HttpMethod::PATCH => match other {
-                HttpMethod::PATCH => true,
-                _ => false,
-            },
-            HttpMethod::DELETE => match other {
-                HttpMethod::DELETE => true,
-                _ => false,
-            },
         }
     }
 }
