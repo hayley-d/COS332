@@ -1,6 +1,6 @@
 use libc::*;
-use practical_2::connection::{create_raw_socket, handle_telnet_connection};
-use practical_2::question::Question;
+use practical_4::connection::{create_raw_socket, handle_telnet_connection};
+use practical_4::question::Question;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 

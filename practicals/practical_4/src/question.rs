@@ -1,14 +1,24 @@
 use tokio::fs;
+use uuid::Uuid;
 
+#[derive(Debug, Clone, Eq)]
 pub struct Question {
+    question_id: Uuid,
     question: String,
     options: Vec<String>,
     answers: Vec<usize>,
 }
 
+impl PartialEq for Question {
+    fn eq(&self, other: &Self) -> bool {
+        self.question_id == other.question_id
+    }
+}
+
 impl Question {
     pub fn new(question: String) -> Self {
         return Question {
+            question_id: Uuid::new_v4(),
             question,
             options: Vec::new(),
             answers: Vec::new(),
@@ -23,7 +33,7 @@ impl Question {
     }
 
     pub fn print(&self) -> String {
-        let mut output = format!("\x1b[1;34mQuestion: {}\x1b[0m\n", self.question);
+        let mut output = format!("Question: {}\n", self.question);
         for (i, option) in self.options.iter().enumerate() {
             let formatted_option = format!("({}) {}\n", i + 1, option);
             output.push_str(formatted_option.as_str());
@@ -34,25 +44,21 @@ impl Question {
     pub fn check_answer(&self, answers: Vec<usize>) -> String {
         let mut output: String = String::new();
         if answers != self.answers {
-            output.push_str(
-                format!("\x1b[1;31mIncorrect\x1b[0m the question answers are:\n").as_str(),
-            );
+            output.push_str(format!("Incorrect the question answers are:\n").as_str());
 
             if self.answers.is_empty() {
-                output.push_str(format!("\x1b[1;31mNo correct answers\x1b[0m\n").as_str());
+                output.push_str(format!("No correct answers\n").as_str());
             } else {
                 for i in &self.answers {
                     if answers.contains(&i) {
-                        output
-                            .push_str(format!("\x1b[1;32m{}\x1b[0m\n", self.options[*i]).as_str());
+                        output.push_str(format!("{}\n", self.options[*i]).as_str());
                     } else {
-                        output
-                            .push_str(format!("\x1b[1;31m{}\x1b[0m\n", self.options[*i]).as_str());
+                        output.push_str(format!("{}\n", self.options[*i]).as_str());
                     }
                 }
             }
         } else {
-            output.push_str(format!("\x1b[1;32mCorrect!\x1b[0m\n").as_str());
+            output.push_str(format!("Correct!\n").as_str());
         }
         return output;
     }
