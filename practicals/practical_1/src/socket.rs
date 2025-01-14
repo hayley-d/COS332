@@ -1,117 +1,106 @@
-/// This module provides utility functions for creating and managing sockets.
-/// It utilizes the `socket2` crate for advanced socket operations and integrates with
-/// Tokio's asynchronous networking capabilities.
-pub mod my_socket {
-    use crate::error::my_errors::ErrorType;
-    use socket2::{Domain, Protocol, SockAddr, Socket, Type};
-    use std::net::{Ipv6Addr, SocketAddrV6};
+/// All raw socket creation happens here.
+/// this modules is for any thing related to the socket connection
+pub mod connection {
+    use libc::*;
+    use libc::{setsockopt, socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR};
+    use log::{error, info};
+    use rustls::pki_types::pem::PemObject;
+    use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+    use rustls::ServerConfig;
+    use std::error::Error;
+    use std::net::TcpListener as StdTcpListener;
+    use std::os::unix::io::FromRawFd;
+    use std::path::PathBuf;
     use tokio::net::TcpListener;
 
-    /// Creates an IPv6 TCP socket, binds it to the specified port, and prepares it to listen for incoming connections.
-    ///
-    /// # Arguments
-    /// - `port`: The port number to bind the socket to.
-    ///
-    /// # Returns
-    /// - `Ok(Socket)`: The created and configured socket.
-    /// - `Err(ErrorType)`: An error if socket creation, binding, or listening fails.
-    ///
-    /// # Errors
-    /// - `SocketError`: If creating, configuring, binding, or listening on the socket fails.
-    ///
-    /// # Example
-    /// ```rust
-    /// use rust_server::my_socket;
-    /// let socket = my_socket::create_socket(8080).unwrap();
-    /// ```
-    pub fn create_socket(port: u16) -> Result<Socket, ErrorType> {
-        // Create a new IPv6 TCP socket
-        let socket = match Socket::new(Domain::IPV6, Type::STREAM, Some(Protocol::TCP)) {
-            Ok(s) => s,
-            Err(_) => {
-                let error = ErrorType::SocketError(String::from("Creating socket"));
-                return Err(error);
+    fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
+        unsafe {
+            // Create a socket
+            // AF_INET specifies the IPv4 address fam
+            // SOCK_STREAM indicates that the socket will use TCP
+            // 0 is default for TCP
+            let socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+
+            if socket_fd < 0 {
+                error!(target: "error_logger","Failed to create socket");
+                std::process::exit(1);
             }
-        };
 
-        // Enable address reuse to avoid "address already in use" errors
-        match socket.set_reuse_address(true) {
-            Ok(_) => (),
-            Err(_) => {
-                let error = ErrorType::SocketError(String::from(
-                    "Problem when attempting to set reuse address",
-                ));
-                return Err(error);
+            // Set socket options
+            let option_val: i32 = 1;
+            if setsockopt(
+                socket_fd,
+                SOL_SOCKET,
+                SO_REUSEADDR,
+                &option_val as *const _ as *const c_void,
+                std::mem::size_of_val(&option_val) as u32,
+            ) < 0
+            {
+                error!(target: "error_logger","Failed to set socket options");
+                std::process::exit(1);
             }
-        };
 
-        // Define the socket address as IPv6 loopback with specified port.
-        let socket_address = SocketAddrV6::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1), port, 0, 0);
-        let socket_address = SockAddr::from(socket_address);
+            // Bind socket to address
+            let address = sockaddr_in {
+                sin_family: AF_INET as u16,
+                sin_port: htons(port),
+                sin_addr: in_addr { s_addr: INADDR_ANY },
+                sin_zero: [0; 8],
+            };
 
-        // Bind the socket to the address and port
-        match socket.bind(&socket_address) {
-            Ok(_) => (),
-            Err(_) => {
-                let error =
-                    ErrorType::SocketError(String::from("Problem when binding address to socket"));
-                return Err(error);
+            if bind(
+                socket_fd,
+                &address as *const sockaddr_in as *const sockaddr,
+                std::mem::size_of::<sockaddr_in>() as u32,
+            ) < 0
+            {
+                error!(target: "error_logger","Failed to bind socket to address");
+                std::process::exit(1);
             }
-        };
 
-        // Start listening for incoming connections on the socket
-        match socket.listen(128) {
-            Ok(_) => (),
-            Err(_) => {
-                let error =
-                    ErrorType::SocketError(String::from("Problem when binding address to socket"));
-                return Err(error);
+            // Start listening at address
+            if listen(socket_fd, 128) < 0 {
+                error!(target:"error_logger","Failed to listen on socket");
+                std::process::exit(1);
             }
-        };
 
-        println!("Listening on [::1]:{port}...");
-
-        return Ok(socket);
+            info!(target:"request_logger","Server started listening on port {}", port);
+            return Ok(socket_fd);
+        }
     }
 
-    /// Converts a socket into a Tokio `TcpListener` for asynchronous operations.
-    ///
-    /// # Arguments
-    /// - `socket`: A pre-configured socket to be converted into a `TcpListener`.
-    ///
-    /// # Returns
-    /// - `Ok(TcpListener)`: The converted asynchronous TCP listener.
-    /// - `Err(ErrorType)`: An error if conversion or non-blocking setup fails.
-    ///
-    /// # Errors
-    /// - `SocketError`: If setting the listener as non-blocking or conversion to a `TcpListener` fails.
-    ///
-    /// # Example
-    /// ```rust
-    /// use rust_server::my_socket;
-    /// let socket = my_socket::create_socket(8080).unwrap();
-    /// let listener = my_socket::get_listener(socket).unwrap();
-    /// ```
-    pub fn get_listener(socket: Socket) -> Result<TcpListener, ErrorType> {
-        // Convert the socket2::Socket into a standard std::net::TcpListener
-        let std_listener: std::net::TcpListener = socket.into();
+    pub async fn load_tls_config() -> Result<ServerConfig, Box<dyn std::error::Error>> {
+        let cert_path: PathBuf = PathBuf::from("server.crt");
+        let key_path: PathBuf = PathBuf::from("server.key");
 
-        // Set the listener to non-blocking mode
-        match std_listener.set_nonblocking(true) {
-            Ok(s) => s,
+        let certs = vec![match CertificateDer::from_pem_file(&cert_path) {
+            Ok(c) => c,
             Err(_) => {
-                return Err(ErrorType::SocketError(String::from(
-                    "Problem when setting non blocking",
-                )))
+                error!(target:"error_logger","Cannot open certificate file");
+                std::process::exit(1);
+            }
+        }];
+
+        let key = match PrivateKeyDer::from_pem_file(&key_path) {
+            Ok(k) => k,
+            Err(_) => {
+                error!(target: "error_logger","Cannot open pk file");
+                std::process::exit(1);
             }
         };
 
-        // Convert the standard listener into a Tokio TcpListener
-        return match TcpListener::from_std(std_listener) {
-            Ok(l) => Ok(l),
-            Err(_) => Err(ErrorType::SocketError(String::from(
-                "Problem when converting tcp listener",
-            ))),
-        };
+        let config = ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(certs, key)?;
+
+        info!(target: "request_logger","TLS certificate and keys configured");
+        return Ok(config);
+    }
+
+    /// Converts a raw libc socket into a tokio TcpListener
+    pub fn get_listener(port: u16) -> Result<TcpListener, Box<dyn std::error::Error>> {
+        let raw_fd = create_raw_socket(port)?;
+        let listener: StdTcpListener = unsafe { StdTcpListener::from_raw_fd(raw_fd) };
+        return Ok(TcpListener::from_std(listener)?);
     }
 }

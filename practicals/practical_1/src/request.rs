@@ -1,10 +1,26 @@
-use crate::{read_file_to_bytes, ErrorType};
-use chrono::{DateTime, Utc};
+use crate::ErrorType;
+use colored::Colorize;
 use core::str;
-use flate2::write::GzEncoder;
-use flate2::Compression;
+use log::error;
 use std::fmt::Display;
-use std::io::Write;
+
+#[derive(Debug)]
+pub struct Clock {
+    lamport_timestamp: i64,
+}
+
+impl Clock {
+    pub fn new() -> Self {
+        return Clock {
+            lamport_timestamp: 0,
+        };
+    }
+    pub fn increment_time(&mut self) -> i64 {
+        let temp: i64 = self.lamport_timestamp;
+        self.lamport_timestamp += 1;
+        return temp;
+    }
+}
 
 #[derive(Debug)]
 pub enum Protocol {
@@ -48,174 +64,32 @@ impl Display for ContentType {
     }
 }
 
-#[derive(Debug)]
-pub struct Response {
-    pub protocol: Protocol,
-    pub code: HttpCode,
-    pub content_type: ContentType,
-    pub body: Vec<u8>,
-    pub compression: bool,
-    pub headers: Vec<Header>,
-}
-
-#[allow(async_fn_in_trait)]
-pub trait MyDefault {
-    async fn default() -> Self;
-}
-
-impl MyDefault for Response {
-    async fn default() -> Self {
-        let mut response = Response::new(Protocol::Http, HttpCode::Ok, ContentType::Html, true);
-
-        response.add_body(read_file_to_bytes("static/index.html").await);
-
-        return response;
-    }
-}
-
-impl Response {
-    pub fn add_header(&mut self, title: String, value: String) {
-        self.headers.push(Header { title, value });
-    }
-
-    pub fn to_bytes(&mut self) -> Vec<u8> {
-        // Response line: HTTP/1.1 <status code>
-        let response_line: String = format!("{} {}\r\n", self.protocol, self.code);
-
-        let body: Vec<u8>;
-
-        if !self.compression {
-            body = self.body.clone();
-        } else {
-            let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-            encoder
-                .write_all(&self.body)
-                .expect("Failed to write body to gzip encoder");
-            body = encoder.finish().expect("Failed to finish gzip compression");
-            //self.add_header(String::from("Content-Encoding"), String::from("gzip"));
-        }
-
-        self.add_header(String::from("Content-Length"), body.len().to_string());
-
-        let mut headers: Vec<String> = Vec::new();
-
-        for header in &self.headers {
-            headers.push(header.to_string());
-        }
-
-        println!("{:?}", headers);
-
-        let mut response = Vec::new();
-        response.extend_from_slice(response_line.as_bytes());
-        response.extend_from_slice(headers.join("\r\n").as_bytes());
-        response.extend_from_slice(b"\r\n\r\n");
-        response.extend_from_slice(&body);
-
-        return response;
-    }
-
-    pub fn add_body(&mut self, body: Vec<u8>) {
-        self.body = body;
-    }
-
-    pub fn new(
-        protocol: Protocol,
-        code: HttpCode,
-        content_type: ContentType,
-        compression: bool,
-    ) -> Self {
-        let body = Vec::with_capacity(0);
-
-        // Date Header
-        let now: DateTime<Utc> = Utc::now();
-        let date = now.format("%a, %d %b %Y %H:%M:%S GMT").to_string();
-
-        let mut headers: Vec<Header> = vec![
-            Header {
-                title: String::from("Server"),
-                value: String::from("Ferriscuit"),
-            },
-            Header {
-                title: String::from("Date"),
-                value: date,
-            },
-            Header {
-                title: String::from("Cache-Control"),
-                value: String::from("no-cache"),
-            },
-            Header {
-                title: String::from("Content-Type"),
-                value: content_type.to_string(),
-            },
-        ];
-
-        if compression {
-            headers.push(Header {
-                title: String::from("Content-Encoding"),
-                value: String::from("gzip"),
-            });
-        }
-
-        return Response {
-            protocol,
-            code,
-            content_type,
-            body,
-            compression,
-            headers,
-        };
-    }
-
-    pub fn code(mut self, code: HttpCode) -> Self {
-        self.code = code;
-        return self;
-    }
-
-    pub fn content_type(mut self, content_type: ContentType) -> Self {
-        self.content_type = content_type;
-        return self;
-    }
-
-    pub fn body(mut self, body: Vec<u8>) -> Self {
-        self.body = body;
-        return self;
-    }
-
-    pub fn compression(mut self, compression: bool) -> Self {
-        self.compression = compression;
-        // add header
-        if compression {
-            for header in &self.headers {
-                if header.title == "Content-Encoding" {
-                    return self;
-                }
-            }
-            self.add_header(String::from("Content-Encoding"), String::from("gzip"));
-        } else {
-            let mut index: isize = -1;
-            for (i, _) in self.headers.iter().enumerate() {
-                if &self.headers[i].title == "Content-Encoding" {
-                    index = i as isize;
-                }
-            }
-
-            if index > 0 {
-                self.headers.remove(index as usize);
-            }
-        }
-        return self;
-    }
-}
-
 pub struct Request {
+    pub request_id: i64,
+    pub client_ip: String,
     pub headers: Vec<String>,
     pub body: String,
     pub method: HttpMethod,
     pub uri: String,
 }
 
+impl Display for Request {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Request: {{method: {}, path: {}, request_id: {},client_ip: {}}}",
+            self.method, self.uri, self.request_id, self.client_ip
+        )
+    }
+}
+
 impl Request {
-    pub fn new(buffer: &[u8]) -> Result<Request, ErrorType> {
+    pub fn print(&self) {
+        println!("{} New Request:", ">>".red().bold());
+        println!("{}{}", self.method.to_string().magenta(), self.uri.cyan());
+    }
+
+    pub fn new(buffer: &[u8], client_ip: String, request_id: i64) -> Result<Request, ErrorType> {
         // unwrap is safe as request has been parsed for any issues before this is called
         let request = String::from_utf8(buffer.to_vec()).unwrap();
 
@@ -223,6 +97,7 @@ impl Request {
         let request: Vec<&str> = request.lines().collect();
 
         if request.len() < 3 {
+            error!(target: "error_logger","Recieved invalid request");
             return Err(ErrorType::ConnectionError(String::from("Invalid request")));
         }
 
@@ -231,7 +106,10 @@ impl Request {
             HttpMethod::new(request[0].split_whitespace().collect::<Vec<&str>>()[0]);
 
         // get the uri from the first line
-        let uri: String = request[0].split_whitespace().collect::<Vec<&str>>()[1].to_string();
+        let mut uri: String = request[0].split_whitespace().collect::<Vec<&str>>()[1].to_string();
+        if uri == "/favicon.ico" {
+            uri = "/".to_string();
+        }
 
         // headers are the rest of the
         let mut headers: Vec<String> = Vec::with_capacity(request.len() - 1);
@@ -250,6 +128,8 @@ impl Request {
         }
 
         return Ok(Request {
+            request_id,
+            client_ip,
             headers,
             body,
             method,
@@ -260,6 +140,10 @@ impl Request {
     pub fn is_compression_supported(&self) -> bool {
         for header in &self.headers {
             let header = header.to_lowercase();
+
+            if header.contains("firefox") {
+                return false;
+            }
 
             if header.contains("accept-encoding") {
                 if header.contains(',') {
@@ -378,10 +262,10 @@ impl HttpMethod {
             HttpMethod::POST
         } else if method.to_uppercase().contains("PUT") {
             HttpMethod::PUT
-        } else if method.to_uppercase().contains("PATCH") {
-            HttpMethod::PATCH
-        } else {
+        } else if method.to_uppercase().contains("DELETE") {
             HttpMethod::DELETE
+        } else {
+            HttpMethod::PATCH
         }
     }
 }
