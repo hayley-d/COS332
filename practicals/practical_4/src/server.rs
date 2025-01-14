@@ -43,6 +43,10 @@ pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
         Err(_) => DEFAULT_PORT,
     };
 
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+
     log4rs::init_file("log4rs.yaml", Default::default()).unwrap();
 
     print_server_info(port);

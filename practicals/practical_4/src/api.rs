@@ -141,8 +141,12 @@ pub mod question_api {
                 if let Some(uuid) = uuid {
                     let questions = questions.lock().await;
                     if let Some(question) = questions.questions.get(&uuid) {
+                        let mut answers: Vec<usize> = vec![];
+                        for ans in &payload.answers {
+                            answers.push(ans - 1);
+                        }
                         return response
-                            .body(question.check_answer(payload.answers).as_bytes().to_vec())
+                            .body(question.check_answer(answers).as_bytes().to_vec())
                             .code(HttpCode::Ok);
                     }
                 }
