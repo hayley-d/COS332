@@ -5,7 +5,7 @@ use dotenv::dotenv;
 use log::{error, info};
 use rand::rngs::OsRng;
 use std::env;
-use std::path::PathBuf;
+use std::path::Path;
 use std::str::from_utf8;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -34,11 +34,11 @@ pub struct SharedState {
 
 impl SharedState {
     pub fn new(redis_connection: redis::Connection, clock: Clock, client: Client) -> Self {
-        return SharedState {
+        SharedState {
             redis_connection,
             clock,
             client,
-        };
+        }
     }
 
     pub async fn increment_clock(&mut self) -> i64 {
@@ -49,7 +49,7 @@ impl SharedState {
         get_cached_content(&mut self.redis_connection, route_name).await
     }
 
-    pub async fn read_and_cache_page(&mut self, path: &PathBuf, route_name: &str) -> Vec<u8> {
+    pub async fn read_and_cache_page(&mut self, path: &Path, route_name: &str) -> Vec<u8> {
         read_and_cache_page(&mut self.redis_connection, path, route_name).await
     }
 
@@ -71,7 +71,7 @@ impl SharedState {
             .execute(&query, &[&username, &hash, &session_id])
             .await?;
 
-        return Ok(session_id);
+        Ok(session_id)
     }
 
     pub async fn find_user(
@@ -86,27 +86,27 @@ impl SharedState {
         let row = self.client.query_one(&query, &[&username]).await?;
 
         if row.is_empty() {
-            return Err(Box::new(ErrorType::ReadError(format!(
-                "Failed to find user"
-            ))));
+            return Err(Box::new(ErrorType::ReadError(
+                "Failed to find user".to_string(),
+            )));
         }
 
         let session_id: Uuid = row.get(4);
 
-        return Ok(session_id);
+        Ok(session_id)
     }
 
     fn hash_password(password: &str) -> Result<String, Box<dyn std::error::Error>> {
         let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
 
-        return match argon2.hash_password(&password.as_bytes(), salt.as_salt()) {
+        match argon2.hash_password(password.as_bytes(), salt.as_salt()) {
             Ok(hash) => Ok(hash.to_string()),
             Err(_) => {
                 error!(target: "error_logger","Failed to create new user");
                 std::process::exit(1);
             }
-        };
+        }
     }
 }
 
@@ -193,7 +193,7 @@ async fn start_server(
     let shutdown_flag = is_shutting_down.clone();
 
     tokio::spawn(async move {
-        if let Err(_) = tokio::signal::ctrl_c().await {
+        if tokio::signal::ctrl_c().await.is_err() {
             eprintln!("Failed to listen for shutdown signal");
             std::process::exit(1);
         } else {
@@ -215,7 +215,7 @@ async fn start_server(
         }
     }
     while connections.clone().available_permits() != 15 {}
-    return Ok(());
+    Ok(())
 }
 
 async fn run_server(
@@ -261,8 +261,6 @@ async fn run_server(
             }
 
             drop(permit);
-
-            return;
         });
 
         handle.await.unwrap();
@@ -319,7 +317,6 @@ async fn handle_connection(
 
         stream.write_all(&response.to_bytes()).await?;
         stream.flush().await?;
-        return Ok(());
     }
 }
 

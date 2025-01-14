@@ -17,7 +17,7 @@ pub async fn read_file_to_bytes(path: &str) -> Vec<u8> {
     let mut file = File::open(path).await.unwrap();
     let mut buffer: Vec<u8> = Vec::with_capacity(metadata.len() as usize);
     file.read_to_end(&mut buffer).await.unwrap();
-    return buffer;
+    buffer
 }
 
 async fn get_bytes(
@@ -63,26 +63,7 @@ async fn handle_get(request: Request, state: Arc<Mutex<SharedState>>) -> Respons
         return response
             .code(HttpCode::Teapot)
             .body(get_bytes(state, PathBuf::from(r"static/teapot.html"), "/coffee").await);
-    } else if request.uri == "/fib" {
-        let output = match Command::new("./cgi/cgi").arg("next").output().await {
-            Ok(o) => o,
-            Err(e) => {
-                error!(target:"error_logger","Failed to run cgi program: {:?}",e);
-                return response
-                    .body(get_bytes(state, PathBuf::from(r"static/404.html"), "/404").await);
-            }
-        };
-
-        if output.status.success() {
-            info!(target:"request_logger","CGI executed successfully");
-        } else {
-            error!(target:"error_logger","CGI program failed");
-            return response
-                .body(get_bytes(state, PathBuf::from(r"static/404.html"), "/404").await);
-        }
-
-        response.add_body(output.stdout);
-    } else if request.uri == "/fib/next" {
+    } else if request.uri == "/fib" || request.uri == "/fib/next" {
         let output = match Command::new("./cgi/cgi").arg("next").output().await {
             Ok(o) => o,
             Err(e) => {
@@ -128,7 +109,7 @@ async fn handle_get(request: Request, state: Arc<Mutex<SharedState>>) -> Respons
             .content_type(ContentType::Text)
             .body(get_bytes(state, PathBuf::from(r"static/404.html"), "/404").await);
     }
-    return response;
+    response
 }
 
 async fn handle_post(request: Request, state: Arc<Mutex<SharedState>>) -> Response {
@@ -247,32 +228,28 @@ async fn handle_post(request: Request, state: Arc<Mutex<SharedState>>) -> Respon
             .code(HttpCode::Ok);
     }
     error!("Failed to parse invalid POST request");
-    return response
+    response
         .body(String::from("Invalid post URI.").into())
-        .code(HttpCode::BadRequest);
+        .code(HttpCode::BadRequest)
 }
 
 async fn handle_put(request: Request) -> Response {
     info!("{}", request);
 
-    let response = Response::default()
+    Response::default()
         .await
         .compression(request.is_compression_supported())
         .body(read_file_to_bytes("static/index.html").await)
-        .code(HttpCode::MethodNotAllowed);
-
-    return response;
+        .code(HttpCode::MethodNotAllowed)
 }
 
 async fn handle_patch(request: Request) -> Response {
     info!("PATCH {} status 404", request.uri);
-    let response = Response::default()
+    Response::default()
         .await
         .compression(request.is_compression_supported())
         .body(read_file_to_bytes("static/index.html").await)
-        .code(HttpCode::MethodNotAllowed);
-
-    return response;
+        .code(HttpCode::MethodNotAllowed)
 }
 
 async fn handle_delete(request: Request, state: Arc<Mutex<SharedState>>) -> Response {
@@ -301,7 +278,7 @@ async fn handle_delete(request: Request, state: Arc<Mutex<SharedState>>) -> Resp
         .filter(|h| h.contains("Cookie: session="))
         .collect();
 
-    let cookie_header = match cookie_header.get(0) {
+    let cookie_header = match cookie_header.first() {
         Some(h) => h,
         None => {
             error!("Attempt to delete without proper authentification from IP address");
@@ -349,9 +326,9 @@ async fn handle_delete(request: Request, state: Arc<Mutex<SharedState>>) -> Resp
             .code(HttpCode::Ok);
     }
 
-    return response
+    response
         .body(String::from("Unable to delete file.").into())
-        .code(HttpCode::BadRequest);
+        .code(HttpCode::BadRequest)
 }
 
 #[cfg(test)]

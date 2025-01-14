@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use log::{error, info};
 use redis::Commands;
@@ -6,7 +6,7 @@ use tokio::fs;
 use tokio::process::{Child, Command};
 
 pub async fn start_redis_server() -> Child {
-    return match Command::new("redis-server").spawn() {
+    match Command::new("redis-server").spawn() {
         Ok(child) => {
             println!("Redis server started");
             info!("Redis server started");
@@ -17,7 +17,7 @@ pub async fn start_redis_server() -> Child {
             error!(target:"error_logger","Failed to start Redis server");
             std::process::exit(1);
         }
-    };
+    }
 }
 
 pub async fn stop_redis_server(mut redis_child: Child) -> Result<(), Box<dyn std::error::Error>> {
@@ -35,16 +35,16 @@ pub async fn stop_redis_server(mut redis_child: Child) -> Result<(), Box<dyn std
 /// Returns a connection to the redis instance
 pub fn set_up_redis() -> Result<redis::Connection, Box<dyn std::error::Error>> {
     let client = redis::Client::open("redis://127.0.0.1/")?;
-    return Ok(client.get_connection()?);
+    Ok(client.get_connection()?)
 }
 
 // caches a files content and returns the string
 pub async fn read_and_cache_page(
     redis_connection: &mut redis::Connection,
-    path: &PathBuf,
+    path: &Path,
     route_name: &str,
 ) -> Vec<u8> {
-    let content: String = match fs::read_to_string(path.clone()).await {
+    let content: String = match fs::read_to_string(path.to_path_buf()).await {
         Ok(content) => content,
         Err(_) => fs::read_to_string("static/404.html")
             .await
@@ -53,7 +53,7 @@ pub async fn read_and_cache_page(
 
     // set for 10 minuets
     let _: () = redis_connection.set_ex(route_name, &content, 600).unwrap();
-    return content.as_bytes().to_vec();
+    content.as_bytes().to_vec()
 }
 
 pub async fn get_cached_content(
