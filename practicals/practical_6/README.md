@@ -32,7 +32,18 @@ You will write an **SMTP client in Rust** that sends an email.
 This involves connecting to an SMTP server (like Gmail’s SMTP server) and following the SMTP protocol to send the email.
 
 #### TODO
-1. **Establish a Connection to an SMTP Server
+1. **Establish a Connection to an SMTP Server**
 2. Send AUTH Command
 3. Send Email
 4. Close Connection
+
+Additionals
+* Using TLS for secure connection
+* Using AUTH CRAM-MD5 hashing based challenged response mechanism for authentification
+* Support attatchments such as pdf through base64 encoding 
+* Upgrade the SMTP connection using STARTTLS
+* Support UTF-8 Encoding
+* Ensure that your MAIL FROM and Return-Path domains align with SPF and DMARC policies to prevent rejection or flagging as spam.
+* Parse server responses for delivery confirmations (e.g., 250 2.0.0 OK) and provide the user with feedback.
+* Implement DKIM signing to add a cryptographic signature to your email headers, ensuring authenticity and integrity.
+
