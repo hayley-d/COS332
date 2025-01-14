@@ -95,19 +95,13 @@ pub mod question_api {
             .body(read_file_to_bytes("static/index.html").await)
             .content_type(ContentType::Text);
 
-        if request.uri == "/signup" {
+        if request.uri == "/answer" {
             // parse the JSON into a hashmap
             info!("POST /signup from");
 
             return response
                 .body(String::from("New user successfully created!").into())
                 .code(HttpCode::Ok);
-        } else if request.uri == "/login" {
-            info!("POST /login from ");
-            return response
-                .body(String::from("Invalid JSON.").into())
-                .code(HttpCode::BadRequest)
-                .content_type(ContentType::Text);
         }
 
         error!("Failed to parse invalid POST request");

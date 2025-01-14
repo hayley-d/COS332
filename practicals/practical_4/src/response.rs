@@ -1,5 +1,6 @@
 pub mod http_response {
     use crate::api::question_api::read_file_to_bytes;
+    use crate::question::Question;
     use crate::request::http_request::{ContentType, Header, HttpCode, Protocol};
     use chrono::{DateTime, Utc};
     use flate2::write::GzEncoder;
