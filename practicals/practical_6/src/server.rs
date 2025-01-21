@@ -55,7 +55,7 @@ pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
     let mut ids: Vec<Uuid> = Vec::new();
 
     for key in questions.keys() {
-        ids.push(key.clone());
+        ids.push(*key);
     }
 
     let state: Arc<Mutex<State>> = Arc::new(Mutex::new(State { questions, ids }));

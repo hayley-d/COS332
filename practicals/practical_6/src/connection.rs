@@ -55,7 +55,7 @@ pub fn handle_telnet_connection(
                     let bytes_read: usize =
                         read(client_fd, buffer.as_mut_ptr() as *mut c_void, buffer.len()) as usize;
 
-                    if bytes_read <= 0 {
+                    if bytes_read == 0 {
                         break;
                     }
 
@@ -93,5 +93,5 @@ pub fn handle_telnet_connection(
         }
         close(client_fd);
     }
-    return Ok(());
+    Ok(())
 }

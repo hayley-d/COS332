@@ -45,21 +45,17 @@ impl Question {
     pub fn check_answer(&self, answers: Vec<usize>) -> String {
         let mut output: String = String::new();
         if answers != self.answers {
-            output.push_str(format!("Incorrect the question answers are:\n").as_str());
+            output.push_str("Incorrect the question answers are:\n");
 
             if self.answers.is_empty() {
-                output.push_str(format!("No correct answers\n").as_str());
+                output.push_str("No correct answers\n");
             } else {
                 for i in &self.answers {
-                    if answers.contains(&i) {
-                        output.push_str(format!("{}\n", self.options[*i]).as_str());
-                    } else {
-                        output.push_str(format!("{}\n", self.options[*i]).as_str());
-                    }
+                    output.push_str(format!("{}\n", self.options[*i]).as_str());
                 }
             }
         } else {
-            output.push_str(format!("Correct!\n").as_str());
+            output.push_str("Correct!\n");
         }
         output
     }
@@ -130,14 +126,14 @@ impl Question {
             .options
             .iter()
             .enumerate()
-            .map(|(i, opt)| {
-                format!(
+            .fold(String::new(), |mut acc, (i, opt)| {
+                acc.push_str(&format!(
                     "<div><input type='checkbox' name='answer' value='{}' /> {} </div>",
                     i + 1,
                     opt
-                )
-            })
-            .collect::<String>();
+                ));
+                acc
+            });
 
         format!(
             r#"

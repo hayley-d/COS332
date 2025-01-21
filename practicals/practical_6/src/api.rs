@@ -1,11 +1,10 @@
-/// This module provides the core functionality for handling HTTP requests and
-/// generating appropriate responses in an asynchronous server.
-///
-/// It includes:
-/// - Utility functions for reading files.
-/// - Handlers for various HTTP methods (GET, POST, PUT, PATCH, DELETE).
-/// - Integration with shared state for caching and user management.
-
+//! This module provides the core functionality for handling HTTP requests and
+//! generating appropriate responses in an asynchronous server.
+//!
+//! It includes:
+//! - Utility functions for reading files.
+//! - Handlers for various HTTP methods (GET, POST, PUT, PATCH, DELETE).
+//! - Integration with shared state for caching and user management.
 pub mod question_api {
     use crate::request::http_request::{ContentType, HttpCode, HttpMethod, Request};
     use crate::response::http_response::{MyDefault, Response};
@@ -133,8 +132,7 @@ pub mod question_api {
         if request.uri == "/answer" {
             // parse the JSON into a hashmap
             info!("POST /signup from");
-            let payload: Result<AnswerPayload, _> =
-                serde_json::from_slice(&request.body.as_bytes());
+            let payload: Result<AnswerPayload, _> = serde_json::from_slice(request.body.as_bytes());
 
             if let Ok(payload) = payload {
                 let uuid = Uuid::parse_str(&payload.uuid).ok();
