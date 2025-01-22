@@ -1,6 +1,7 @@
 pub mod api;
 pub mod connection;
 pub mod error;
+pub mod mail;
 pub mod question;
 pub mod request;
 pub mod response;
