@@ -121,7 +121,9 @@ impl Question {
         questions
     }
 
-    pub fn generate_html_page(&self) -> Vec<u8> {
+    pub fn generate_html_page(&self, client_id: Uuid) -> Vec<u8> {
+        let client_id: String = client_id.to_string();
+
         let options = self
             .options
             .iter()
@@ -142,7 +144,7 @@ impl Question {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Question</title>
+    <title>Distributed Sysytems Test</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
@@ -150,6 +152,8 @@ impl Question {
     <h1>{}</h1>
     <form id="question-form" class="mt-4">
         <input type="hidden" name="uuid" id="uuid" value="{}" />
+        <input type="hidden" name="client_id" id="client_id" value="{}" />
+
         {}
         <button type="button" class="btn btn-primary mt-3" onclick="submitAnswer()">Submit Answer</button>
     </form>
@@ -159,6 +163,8 @@ impl Question {
     function submitAnswer() {{
         // Get the UUID
         const uuid = document.getElementById('uuid').value;
+        const client_id = document.getElementById('client_id').value;
+
 
         // Get all checked checkboxes
         const checkedAnswers = Array.from(
@@ -168,6 +174,7 @@ impl Question {
         // Create the JSON payload
         const payload = {{
             uuid: uuid,
+            client_id: client_id,
             answers: checkedAnswers,
         }};
 
@@ -193,7 +200,7 @@ impl Question {
 </body>
 </html>
 "#,
-            self.question, self.question_id, options
+            self.question, self.question_id,client_id, options
         ).as_bytes().to_vec()
     }
 }

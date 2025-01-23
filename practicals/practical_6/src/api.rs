@@ -64,6 +64,7 @@ pub mod question_api {
     /// A `Response` object with the appropriate content and status code.
     async fn handle_get(request: Request, questions: Arc<Mutex<State>>) -> Response {
         let questions = questions.lock().await;
+        let client_id: Uuid = Uuid::new_v4();
 
         let random_index = rand::thread_rng().gen_range(0..questions.ids.len() - 1);
         let random_id = match questions.ids.get(random_index) {
@@ -91,7 +92,7 @@ pub mod question_api {
         let response = Response::default()
             .await
             .compression(request.is_compression_supported())
-            .body(random_question.generate_html_page());
+            .body(random_question.generate_html_page(client_id));
 
         if request.uri == "/" {
             info!(target: "request_logger","GET / from status 200");
@@ -127,6 +128,7 @@ pub mod question_api {
     #[derive(Deserialize)]
     struct AnswerPayload {
         uuid: String,
+        client_id: String,
         answers: Vec<usize>,
     }
 
@@ -152,6 +154,7 @@ pub mod question_api {
 
             if let Ok(payload) = payload {
                 let uuid = Uuid::parse_str(&payload.uuid).ok();
+                let client_id = &payload.client_id;
                 if let Some(uuid) = uuid {
                     let questions = questions.lock().await;
                     if let Some(question) = questions.questions.get(&uuid) {

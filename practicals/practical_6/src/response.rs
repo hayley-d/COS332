@@ -99,6 +99,10 @@ pub mod http_response {
                     value: String::from("no-store"),
                 },
                 Header {
+                    title: String::from("Connection"),
+                    value: String::from("keep-alive"),
+                },
+                Header {
                     title: String::from("Content-Type"),
                     value: content_type.to_string(),
                 },
