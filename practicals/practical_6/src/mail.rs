@@ -16,8 +16,7 @@ pub async fn send_mail(
     let body: &str = "Congratulations! You scored 95/100";
 
     // Connect to SMTP server
-    let mut stream: TcpStream = TcpStream::connect((smtp_server, port)).await?;
-    let mut buffer: Vec<u8> = Vec::new();
+    let mut stream: TcpStream = TcpStream::connect((smtp_server.clone(), port)).await?;
 
     // Send EHLO
     send_command(&mut stream, "EHLO localhost").await?;
@@ -25,8 +24,9 @@ pub async fn send_mail(
     // Start TLS
     send_command(&mut stream, "STARTTLS").await?;
 
-    let connector = native_tls::TlsConnector::new()?;
-    let tls_stream = connector.connect(&smtp_server, stream)?;
+    let connector: tokio_native_tls::TlsConnector =
+        tokio_native_tls::TlsConnector::from(native_tls::TlsConnector::new()?);
+    let mut tls_stream = connector.connect(&smtp_server, stream).await?;
 
     // Send EHLO again after TLS is established
     send_command(&mut tls_stream, "EHLO localhost").await?;
@@ -35,26 +35,26 @@ pub async fn send_mail(
     let auth_encoded = base64::encode(auth_string);
 
     // Authenticate using AUTH PLAIN
-    send_command(&mut tls_stream, &format!("AUTH PLAIN {}", auth_encoded))?;
+    send_command(&mut tls_stream, &format!("AUTH PLAIN {}", auth_encoded)).await?;
 
     // Specify the sender
-    send_command(&mut tls_stream, &format!("MAIL FROM: {}", username))?;
+    send_command(&mut tls_stream, &format!("MAIL FROM: {}", username)).await?;
 
     // Specify the recipient
-    send_command(&mut tls_stream, &format!("RCPT TO:<{}>", recipient))?;
+    send_command(&mut tls_stream, &format!("RCPT TO:<{}>", recipient)).await?;
 
     // Start composing email
-    send_command(&mut tls_stream, "DATA")?;
+    send_command(&mut tls_stream, "DATA").await?;
 
     // Send the email
     let email_content: String = format!(
         "From: {}\r\nTo: {}\r\nSubject: {}\r\n\r\n{}\r\n.",
         username, recipient, subject, body
     );
-    send_command(&mut tls_stream, &email_content)?;
+    send_command(&mut tls_stream, &email_content).await?;
 
     // Quit the session
-    send_command(&mut tls_stream, "QUIT")?;
+    send_command(&mut tls_stream, "QUIT").await?;
 
     log::info!(target:"request_logger","Email send to {}",recipient);
     Ok(())
@@ -62,13 +62,13 @@ pub async fn send_mail(
 
 async fn send_command<S>(stream: &mut S, command: &str) -> Result<(), Box<dyn std::error::Error>>
 where
-    S: tokio::io::AsyncWriteExt + Unpin,
+    S: tokio::io::AsyncWriteExt + Unpin + tokio::io::AsyncReadExt,
 {
     stream.write_all(command.as_bytes()).await?;
     stream.write_all(b"\r\n").await?;
     stream.flush().await?;
 
-    read_response(&mut stream, &mut Vec::new()).await?;
+    read_response(stream, &mut Vec::new()).await?;
     Ok(())
 }
 
@@ -80,7 +80,7 @@ where
     S: tokio::io::AsyncReadExt + Unpin,
 {
     let n = stream.read(buffer).await?;
-    let response: String = String::from_utf8_lossy(&buffer[..n]);
+    let response: String = String::from_utf8_lossy(&buffer[..n]).to_string();
     let status_code: u16 = response[..3].parse()?;
 
     println!("Server: {}", response.trim());
@@ -94,5 +94,4 @@ where
             )));
         }
     }
-    Ok(())
 }
