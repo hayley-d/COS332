@@ -380,3 +380,21 @@
 2025-01-23 13:20:51.729 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:157 - TLS handshake successful with 127.0.0.1:48550
 2025-01-23 13:20:51.730 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/api.rs:98 - GET / from status 200
 2025-01-23 13:20:51.830 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/api.rs:98 - GET / from status 200
+2025-01-23 14:12:53.533 [INFO] main /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:68 - Server Started
+2025-01-23 14:12:53.534 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-01-23 14:12:53.534 [INFO] main /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/socket.rs:96 - TLS certificate and keys configured
+2025-01-23 14:12:58.831 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:157 - TLS handshake successful with 127.0.0.1:39922
+2025-01-23 14:12:58.832 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/api.rs:105 - GET / from status 200
+2025-01-23 14:12:58.927 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/api.rs:105 - GET / from status 200
+2025-01-23 14:13:09.825 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:157 - TLS handshake successful with 127.0.0.1:56384
+2025-01-23 14:13:09.829 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/api.rs:159 - POST /signup from
+2025-01-23 14:13:18.655 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:157 - TLS handshake successful with 127.0.0.1:45684
+2025-01-23 14:13:18.656 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/api.rs:105 - GET / from status 200
+2025-01-23 14:13:18.730 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/api.rs:105 - GET / from status 200
+2025-01-23 14:13:27.479 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:157 - TLS handshake successful with 127.0.0.1:39402
+2025-01-23 14:13:27.483 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/api.rs:159 - POST /signup from
+2025-01-23 14:13:34.930 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:157 - TLS handshake successful with 127.0.0.1:37626
+2025-01-23 14:13:34.931 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/api.rs:105 - GET / from status 200
+2025-01-23 14:13:35.013 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/api.rs:105 - GET / from status 200
+2025-01-23 14:13:47.048 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:157 - TLS handshake successful with 127.0.0.1:48482
+2025-01-23 14:13:47.051 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/api.rs:159 - POST /signup from

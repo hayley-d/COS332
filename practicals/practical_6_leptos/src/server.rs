@@ -182,16 +182,26 @@ async fn handle_connection(
     address: String,
     state: Arc<Mutex<State>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let connection_id = Uuid::new_v4();
+    let connection_id = Uuid::new_v4().to_string().clone();
 
-    state.lock().await.user_scores.insert(connection_id, 0);
+    state
+        .lock()
+        .await
+        .user_scores
+        .insert(connection_id.clone(), (0, 0));
 
+    let connecion_id_clone = connection_id.clone();
     loop {
-        println!(
-            "Connection {}, Score {}",
-            connection_id,
-            state.lock().await.user_scores.get(&connection_id).unwrap()
-        );
+        let connection_id_clone = connecion_id_clone.clone();
+
+        if let Some((score, totoal)) = state.lock().await.user_scores.get(&connection_id_clone) {
+            println!(
+                "Connection {}, {}/{}",
+                connecion_id_clone.clone(),
+                score,
+                totoal
+            );
+        }
 
         let mut buffer = [0; 4096];
 
@@ -229,7 +239,8 @@ async fn handle_connection(
             return Ok(());
         }
 
-        let mut response: Response = handle_response(request, state.clone(), connection_id).await;
+        let mut response: Response =
+            handle_response(request, state.clone(), connection_id_clone.clone()).await;
 
         stream.write_all(&response.to_bytes()).await?;
         stream.flush().await?;

@@ -129,9 +129,7 @@ impl Question {
         questions
     }
 
-    pub fn generate_html_page(&self, client_id: Uuid) -> Vec<u8> {
-        let client_id: String = client_id.to_string();
-
+    pub fn generate_html_page(&self, client_id: String) -> Vec<u8> {
         let options = self
             .options
             .iter()
@@ -164,6 +162,8 @@ impl Question {
 
         {}
         <button type="button" class="btn btn-primary mt-3" onclick="submitAnswer()">Submit Answer</button>
+        <button type="button" class="btn btn-primary mt-3"><a href="/">New question</a></button>
+
     </form>
     <div id="response" class="mt-4"></div>
 </div>

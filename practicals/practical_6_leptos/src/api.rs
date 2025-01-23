@@ -46,12 +46,12 @@ pub mod question_api {
     /// A `Response` object generated based on the request.
     pub async fn handle_response(
         request: Request,
-        questions: Arc<Mutex<State>>,
-        client_id: Uuid,
+        state: Arc<Mutex<State>>,
+        client_id: String,
     ) -> Response {
         match request.method {
-            HttpMethod::GET => handle_get(request, questions, client_id).await,
-            HttpMethod::POST => handle_post(request, questions).await,
+            HttpMethod::GET => handle_get(request, state, client_id).await,
+            HttpMethod::POST => handle_post(request, state).await,
             HttpMethod::PUT => handle_put(request).await,
             HttpMethod::PATCH => handle_patch(request).await,
             HttpMethod::DELETE => handle_delete(request).await,
@@ -69,7 +69,7 @@ pub mod question_api {
     async fn handle_get(
         request: Request,
         questions: Arc<Mutex<State>>,
-        client_id: Uuid,
+        client_id: String,
     ) -> Response {
         let questions = questions.lock().await;
 

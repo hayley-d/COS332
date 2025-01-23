@@ -32,3 +32,9 @@
 2025-01-23 13:20:36.871 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:161 - TLS handshake failed with 127.0.0.1:52044
 2025-01-23 13:20:45.977 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:161 - TLS handshake failed with 127.0.0.1:41310
 2025-01-23 13:20:51.727 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:161 - TLS handshake failed with 127.0.0.1:48538
+2025-01-23 14:12:58.824 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:161 - TLS handshake failed with 127.0.0.1:39918
+2025-01-23 14:13:09.817 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:161 - TLS handshake failed with 127.0.0.1:56382
+2025-01-23 14:13:18.653 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:161 - TLS handshake failed with 127.0.0.1:45676
+2025-01-23 14:13:27.472 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:161 - TLS handshake failed with 127.0.0.1:39400
+2025-01-23 14:13:34.926 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:161 - TLS handshake failed with 127.0.0.1:37622
+2025-01-23 14:13:47.041 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:161 - TLS handshake failed with 127.0.0.1:48478
