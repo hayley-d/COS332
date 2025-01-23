@@ -1,0 +1,34 @@
+2025-01-23 09:41:39.139 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:51604
+2025-01-23 09:41:43.915 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:48054
+2025-01-23 09:41:44.072 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:48084
+2025-01-23 09:42:07.747 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:36260
+2025-01-23 09:44:18.039 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:56856
+2025-01-23 09:44:35.053 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:52640
+2025-01-23 09:47:40.493 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:39366
+2025-01-23 09:47:47.648 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:39372
+2025-01-23 09:59:21.702 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:56546
+2025-01-23 09:59:29.991 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:56550
+2025-01-23 10:07:06.935 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:57832
+2025-01-23 10:07:11.443 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:38780
+2025-01-23 10:40:37.324 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:34522
+2025-01-23 10:40:37.434 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:34538
+2025-01-23 10:40:41.935 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:59270
+2025-01-23 10:40:44.037 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/mail.rs:104 - SMTP Error 501 5.1.7 Bad sender address syntax
+2025-01-23 10:42:58.439 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:44250
+2025-01-23 10:43:06.262 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:41936
+2025-01-23 10:43:28.243 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:58314
+2025-01-23 10:43:29.793 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/mail.rs:104 - SMTP Error 501 5.1.7 Bad sender address syntax
+2025-01-23 10:45:28.568 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:41238
+2025-01-23 10:45:40.042 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:43556
+2025-01-23 10:45:41.841 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/mail.rs:104 - SMTP Error 501 5.5.4 Syntax: MAIL FROM:<address>
+2025-01-23 10:46:32.207 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:43900
+2025-01-23 10:46:42.616 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:60570
+2025-01-23 10:46:47.745 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:60590
+2025-01-23 10:50:31.151 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:39630
+2025-01-23 10:50:42.550 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6/src/server.rs:156 - TLS handshake failed with 127.0.0.1:43022
+2025-01-23 13:05:52.595 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:161 - TLS handshake failed with 127.0.0.1:53204
+2025-01-23 13:05:53.143 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:161 - TLS handshake failed with 127.0.0.1:53234
+2025-01-23 13:06:00.366 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:161 - TLS handshake failed with 127.0.0.1:36886
+2025-01-23 13:20:36.871 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:161 - TLS handshake failed with 127.0.0.1:52044
+2025-01-23 13:20:45.977 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:161 - TLS handshake failed with 127.0.0.1:41310
+2025-01-23 13:20:51.727 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/practicals/practical_6_leptos/src/server.rs:161 - TLS handshake failed with 127.0.0.1:48538
