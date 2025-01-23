@@ -97,6 +97,22 @@ pub mod question_api {
             info!(target: "request_logger","GET / from status 200");
         } else if request.uri == "/question" {
             info!(target: "request_logger","GET /question status: 200");
+        } else if request.uri == "/end" {
+            // If first attempt fails try once more
+            let mut retries = 1;
+            while retries != 0 {
+                match crate::mail::send_mail("".to_string(), "2002dodhay@gmail.com".to_string())
+                    .await
+                {
+                    Ok(_) => break,
+                    Err(e) => {
+                        eprintln!("Error sending mail: {:?}", e);
+                    }
+                };
+                retries -= 1;
+            }
+
+            info!(target: "request_logger","GET /end status: 200");
         } else {
             error!(target: "error_logger","Failed to serve request GET {}", request.uri);
             info!(target: "request_logger","GET {} status: 404", request.uri);
@@ -143,6 +159,7 @@ pub mod question_api {
                         for ans in &payload.answers {
                             answers.push(ans - 1);
                         }
+
                         return response
                             .body(question.check_answer(answers).as_bytes().to_vec())
                             .code(HttpCode::Ok);

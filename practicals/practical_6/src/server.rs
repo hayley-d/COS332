@@ -26,6 +26,7 @@ const DEFAULT_PORT: u16 = 7878;
 
 pub struct State {
     pub questions: HashMap<Uuid, Question>,
+    pub user_scores: HashMap<Uuid, usize>,
     pub ids: Vec<Uuid>,
 }
 
@@ -58,7 +59,11 @@ pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
         ids.push(*key);
     }
 
-    let state: Arc<Mutex<State>> = Arc::new(Mutex::new(State { questions, ids }));
+    let state: Arc<Mutex<State>> = Arc::new(Mutex::new(State {
+        questions,
+        user_scores: HashMap::new(),
+        ids,
+    }));
 
     info!(target: "request_logger","Server Started");
     let _ = start_server(port, state.clone()).await;
