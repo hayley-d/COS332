@@ -2,7 +2,7 @@ use base64::engine::Engine as _;
 use tokio::net::TcpStream;
 
 pub async fn send_mail(
-    _results: String,
+    results: String,
     recipient: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // load the enviroment variables
@@ -14,7 +14,6 @@ pub async fn send_mail(
     let token: String = std::env::var("SMTP_TOKEN")?;
 
     let subject: &str = "Test Results";
-    let body: &str = "Congratulations! You scored 95/100";
 
     // Connect to SMTP server
     println!("Connecting to {} on port {}", smtp_server, port);
@@ -60,7 +59,7 @@ pub async fn send_mail(
     // Send the email
     let email_content: String = format!(
         "From: {}\r\nTo: {}\r\nSubject: {}\r\n\r\n{}\r\n.\r\n",
-        username, recipient, subject, body
+        username, recipient, subject, results
     );
     send_command(&mut tls_stream, &email_content).await?;
 

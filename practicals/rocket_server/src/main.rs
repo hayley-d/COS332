@@ -30,7 +30,6 @@ impl AppState {
 #[derive(Debug, FromForm)]
 struct AnswerSubmission {
     question_id: String,
-    client_id: String,
     answers: Vec<usize>,
 }
 
@@ -79,23 +78,11 @@ async fn home(state: &rocket::State<Arc<Mutex<AppState>>>, cookies: &CookieJar<'
     let mut state = state.lock().await;
     let user_id = get_or_create_user(cookies);
     let (score, total) = state.user_scores.entry(user_id).or_insert((0, 0));
+    println!("Current score is : {score}/{total}");
     let random_index = rand::thread_rng().gen_range(0..state.ids.len() - 1);
     let random_id = state.ids.get(random_index).unwrap();
     match state.questions.get(random_id) {
         Some(q) => {
-            let options = q
-                .options
-                .iter()
-                .enumerate()
-                .fold(String::new(), |mut acc, (i, opt)| {
-                    acc.push_str(&format!(
-                        "<div><input type='checkbox' name='answer' value='{}' /> {} </div>",
-                        i + 1,
-                        opt
-                    ));
-                    acc
-                });
-
             return Template::render(
                 "index",
                 context! {
@@ -119,6 +106,7 @@ async fn submit_answer(
     cookies: &CookieJar<'_>,
 ) -> Result<Template, Template> {
     if let Some(ref answer) = form.value {
+        println!("Answer: {:?}", answer);
         let user_id = get_or_create_user(cookies);
         let mut correct: bool = false;
         let mut message: String = String::new();

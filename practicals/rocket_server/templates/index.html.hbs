@@ -13,7 +13,6 @@
     <h2>{{question}}</h2>
     <form method="POST" enctype="multipart/form-data" action="/answer">
         <input type="hidden" name="question_id" id="question_id" value="{{ question_id }}"/>
-        <input type="hidden" name="client_id" id="client_id" value="{{ client_id }}"/>
             <div>
                 <input type="checkbox" name="answer" value="1" />
                 <label>{{option1}}</label>
