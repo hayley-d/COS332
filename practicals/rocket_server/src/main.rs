@@ -47,8 +47,19 @@ pub struct EmailRequest {
 }
 
 #[launch]
-fn rocket() -> _ {
-    let state: Arc<Mutex<AppState>> = Arc::new(Mutex::new(AppState::new()));
+async fn rocket() -> _ {
+    let questions: HashMap<String, Question> = Question::parse_file().await;
+    let mut ids: Vec<String> = Vec::new();
+
+    for key in questions.keys() {
+        ids.push(key.to_string());
+    }
+
+    let state: Arc<Mutex<AppState>> = Arc::new(Mutex::new(AppState {
+        questions,
+        user_scores: HashMap::new(),
+        ids,
+    }));
 
     rocket::build()
         .manage(state)
@@ -56,7 +67,7 @@ fn rocket() -> _ {
         .mount("/", routes![submit_answer, show_results, email, home])
 }
 
-#[get("/results")]
+#[post("/results")]
 async fn show_results() -> Template {
     // Render the email.html
     Template::render("email", context! {})
@@ -71,7 +82,32 @@ async fn home(state: &rocket::State<Arc<Mutex<AppState>>>, cookies: &CookieJar<'
     let random_index = rand::thread_rng().gen_range(0..state.ids.len() - 1);
     let random_id = state.ids.get(random_index).unwrap();
     match state.questions.get(random_id) {
-        Some(q) => return Template::render("index", context! {question: q}),
+        Some(q) => {
+            let options = q
+                .options
+                .iter()
+                .enumerate()
+                .fold(String::new(), |mut acc, (i, opt)| {
+                    acc.push_str(&format!(
+                        "<div><input type='checkbox' name='answer' value='{}' /> {} </div>",
+                        i + 1,
+                        opt
+                    ));
+                    acc
+                });
+
+            return Template::render(
+                "index",
+                context! {
+                    question: q.question.clone(),
+                    question_id: q.question_id.clone(),
+                    option1: q.options[0].clone(),
+                    option2: q.options[1].clone(),
+                    option3: q.options[2].clone(),
+                    option4: q.options[3].clone()
+                },
+            );
+        }
         None => return Template::render("404", context! {}),
     };
 }

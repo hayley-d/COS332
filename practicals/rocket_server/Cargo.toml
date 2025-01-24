@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tokio = { version = "1", features = ["full"], optional = true }
+tokio = { version = "1.42.0", features = ["full"] }
 serde = "1.0.217"
 serde_json = "1.0.137"
 rocket = {version="0.5.1",features=["uuid"]}

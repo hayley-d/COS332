@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Question {
-    pub question_id: Uuid,
+    pub question_id: String,
     pub question: String,
     pub options: Vec<String>,
     pub answers: Vec<usize>,
@@ -19,7 +19,7 @@ impl PartialEq for Question {
 impl Question {
     pub fn new(question: String) -> Self {
         Question {
-            question_id: Uuid::new_v4(),
+            question_id: Uuid::new_v4().to_string(),
             question,
             options: Vec::new(),
             answers: Vec::new(),
@@ -68,7 +68,7 @@ impl Question {
         }
     }
 
-    pub async fn parse_file() -> HashMap<Uuid, Question> {
+    pub async fn parse_file() -> HashMap<String, Question> {
         let file = match fs::read_to_string("file.txt").await {
             Ok(f) => f,
             Err(_) => {
@@ -77,7 +77,7 @@ impl Question {
             }
         };
 
-        let mut questions: HashMap<Uuid, Question> = HashMap::new();
+        let mut questions: HashMap<String, Question> = HashMap::new();
 
         let lines: Vec<String> = file.lines().map(|s| s.to_string()).collect();
         let mut i: usize = 0;
@@ -94,7 +94,7 @@ impl Question {
                         let marker: &Option<char> = &lines[j].chars().nth(0);
                         match marker {
                             Some('?') => {
-                                questions.insert(question.question_id, question);
+                                questions.insert(question.question_id.clone(), question);
 
                                 break;
                             }

@@ -10,16 +10,27 @@
 <body>
 <main class="container">
     <h1> Welcome to the Distributed Systems Test </h1>
-    <h2>{{message}}</h2>
+    <h2>{{question}}</h2>
     <form method="POST" enctype="multipart/form-data" action="/answer">
         <input type="hidden" name="question_id" id="question_id" value="{{ question_id }}"/>
         <input type="hidden" name="client_id" id="client_id" value="{{ client_id }}"/>
-            {% for option in question.options %}
-                <div>
-                    <input type="checkbox" name="answer" value="{{ loop.index }}" />
-                    <label>{{ option }}</label>
-                </div>
-            {% endfor %}        
+            <div>
+                <input type="checkbox" name="answer" value="1" />
+                <label>{{option1}}</label>
+            </div>
+            <div>
+                <input type="checkbox" name="answer" value="2" />
+                <label>{{option2}}</label>
+            </div>
+            <div>
+                <input type="checkbox" name="answer" value="3" />
+                <label>{{option3}}</label>
+            </div>
+            <div>
+                <input type="checkbox" name="answer" value="4" />
+                <label>{{option4}}</label>
+            </div>
+
             <button type="submit" class="btn btn-primary mt-3">Submit Answer</button>
     </form>
 

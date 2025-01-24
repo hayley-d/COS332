@@ -1,0 +1,119 @@
+?What is the primary goal of the Paxos algorithm in distributed systems?
+-To synchronize system clocks
+-To optimize network throughput
++To achieve consensus in a distributed system
+-To provide eventual consistency
+
+?What problem does gRPC solve in distributed systems?
+-Managing large datasets in memory
++Providing high-performance, language-agnostic remote procedure calls
+-Coordinating consensus among nodes
+-Synchronizing distributed clocks
+
+?Which protocol does gRPC use for transport?
++HTTP/2
+-HTTP/1.1
+-UDP
+-RPC over TCP
+
+?In the context of distributed databases, what does CAP theorem state?
+-A distributed system can achieve consistency, availability, and partition tolerance simultaneously
++A distributed system can achieve at most two of consistency, availability, and partition tolerance
+-Consistency and availability are mutually exclusive
+-Partition tolerance is optional
+
+?Which consistency model allows reads to see the most recently written value?
+-Eventual Consistency
+-Causal Consistency
++Strong Consistency
+-Session Consistency
+
+?What is the primary role of a coordinator node in a two-phase commit protocol?
+-To act as a backup node in case of failure
+-To handle all write operations
++To manage the voting process and finalize the transaction
+-To replicate data across all participants
+
+?Which of the following protocols is used for distributed clock synchronization?
++NTP
+-DNS
+-Paxos
+-Raft
+
+?What is the main purpose of a quorum in distributed systems?
+-To determine the order of events in a distributed ledger
+-To guarantee fault tolerance in a single-node system
++To ensure consistency across replicas
+-To limit the number of nodes involved in consensus
+
+?In Paxos, what happens if two proposers propose values concurrently?
+-One proposal is ignored, and the other is accepted
+-The system enters a deadlock state
++The protocol ensures safety, but liveness may be temporarily compromised
+-All acceptors reject both proposals
+
+?What does the term "sharding" refer to in distributed databases?
+-The process of compressing data to save space
++Partitioning data into smaller, manageable chunks
+-The replication of data across multiple nodes
+-Using hashing to store data on disk
+
+?What is the primary difference between Paxos and Raft consensus algorithms?
+-Paxos is used for leader election, while Raft is not
++Raft is designed to be simpler to understand and implement compared to Paxos
+-Paxos guarantees better fault tolerance than Raft
+-Raft does not require a quorum, but Paxos does
+
+?In a distributed system, what does a Lamport Timestamp ensure?
++The ordering of events in a system
+-The exact time of an event in real-world time
+-Guaranteed message delivery
+-Synchronization of all system clocks
+
+?What does CRDT stand for?
+-Consistent Replication of Distributed Transactions
++Conflict-Free Replicated Data Type
+-Centralized Relational Database Technology
+-Consensus-Ready Distributed Transactions
+
+?Which property of CRDTs ensures they converge to the same state across replicas?
+-Eventual consistency
++Strong convergence
+-Timestamp-based ordering
+-Leader election
+
+?What is the main advantage of using a CRDT in a distributed system?
+-To avoid the need for replication
++To enable conflict-free merging of replicas without coordination
+-To ensure strict ordering of events
+-To implement leader election algorithms
+
+?How does Paxos ensure safety in the presence of failures?
++By requiring a quorum of acceptors for decisions
+-By using optimistic locking for transactions
+-By synchronizing clocks across nodes
+-By replicating data to all nodes in the cluster
+
+?What does the "proposer" do in the Paxos protocol?
+-Replicates data across all nodes
++Proposes a value to be agreed upon by the acceptors
+-Synchronizes clocks in the distributed system
+-Ensures all learners receive the final decision
+
+?What kind of messages does gRPC typically use to define its interface?
+-SOAP XML schemas
++Protocol Buffers (protobuf)
+-JSON schemas
+-FlatBuffers
+
+?Which of the following is a common application of gRPC in distributed systems?
++Microservices communication
+-Log aggregation
+-Distributed lock management
+-Synchronizing replicas in a database
+
+?Which of these is a major challenge when using Paxos in a practical system?
+-The lack of fault tolerance
++The complexity of implementation and debugging
+-The absence of consensus guarantees
+-The need for synchronous communication between nodes
