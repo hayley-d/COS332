@@ -60,6 +60,14 @@ impl Question {
         output
     }
 
+    pub fn check_answer_correct(&self, answers: &Vec<usize>) -> bool {
+        if *answers != self.answers {
+            false
+        } else {
+            true
+        }
+    }
+
     pub async fn parse_file() -> HashMap<Uuid, Question> {
         let file = match fs::read_to_string("file.txt").await {
             Ok(f) => f,
