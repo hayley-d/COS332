@@ -107,6 +107,7 @@ async fn submit_answer(
 ) -> Result<Template, Template> {
     if let Some(ref answer) = form.value {
         println!("Answer: {:?}", answer);
+
         let user_id = get_or_create_user(cookies);
         let mut correct: bool = false;
         let mut message: String = String::new();
@@ -114,8 +115,9 @@ async fn submit_answer(
         // get the state of the answer and the message associated
         match state.lock().await.questions.get(&answer.question_id) {
             Some(q) => {
-                correct = q.check_answer_correct(&answer.answers);
-                message = q.check_answer(answer.answers.clone());
+                let answers = answer.answers.iter().map(|&a| a - 1).collect();
+                correct = q.check_answer_correct(&answers);
+                message = q.check_answer(answers.clone());
             }
             None => return Err(Template::render("400", context! {message: message})),
         };

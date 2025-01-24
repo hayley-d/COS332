@@ -44,6 +44,7 @@ impl Question {
 
     pub fn check_answer(&self, answers: Vec<usize>) -> String {
         let mut output: String = String::new();
+        println!("{:?} == {:?}", answers, self.answers);
         if answers != self.answers {
             output.push_str("Incorrect the question answers are:\n");
 
