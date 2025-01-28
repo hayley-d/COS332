@@ -20,4 +20,17 @@ Core Requirements:
 #### 3. Errors
 - if file is locked queue the replacement until it is available.
 
+## Features
+### 1. File System Events
+- Uses file system events instead of polling which improves responsiveness and reduces system load.
+- Uses the `notify` crate for file system events functionality.
+- responds to modification and deletion events.
+- Immediate notification of changes rather than periodic polling.
+
+### 2. Merkel Tree Implementation
+- Used for efficient file change detection.
+- splits the file into chuncks and creates a hash tree.
+- allows for future expansion to partial file verification.
+- more sophisitated than simple hash comparison.
+
 
