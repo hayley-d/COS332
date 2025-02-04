@@ -1,10 +1,8 @@
-use std::collections::VecDeque;
-use std::sync::Arc;
-
-use notify::Event;
-
 use crate::ftpclient::{FtpClient, MonitorError};
 use crate::merkle::MerkleNode;
+use notify::Event;
+use std::collections::VecDeque;
+use std::sync::Arc;
 
 /// Enhanced FileMonitor with distributed consensus
 /// # Members
@@ -13,10 +11,10 @@ use crate::merkle::MerkleNode;
 /// `merkle_root`: The current Merkle tree root node. (None if no root node).
 /// `event_receiver`: A receiver waiting for the notification.
 pub struct FileMonitor {
-    ftp_client: FtpClient,
-    watch_path: String,
-    merkle_root: Option<MerkleNode>,
-    event_receiver: Receiver<notify::Result<Event>>,
+    pub(crate) ftp_client: FtpClient,
+    pub(crate) watch_path: String,
+    pub(crate) merkle_root: Option<MerkleNode>,
+    pub(crate) event_receiver: Receiver<notify::Result<Event>>,
 }
 
 impl FileMonitor {
