@@ -1,0 +1,10 @@
+[package]
+name = "cgi"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version= "1.0.217", features = ["derive"] }
+serde_yaml = "0.9"
+chrono = "0.4.39"
+
