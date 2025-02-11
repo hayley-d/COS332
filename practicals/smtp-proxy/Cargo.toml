@@ -1,5 +1,5 @@
 [package]
-name = "practical_7"
+name = "smtp-proxy"
 version = "0.1.0"
 edition = "2021"
 
