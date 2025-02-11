@@ -1,0 +1,12 @@
+2025-02-12 01:15:04.751 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:298 - TLS handshake failed with 127.0.0.1:34390
+2025-02-12 01:20:23.502 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:298 - TLS handshake failed with 127.0.0.1:52036
+2025-02-12 01:21:53.295 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:298 - TLS handshake failed with 127.0.0.1:57098
+2025-02-12 01:21:56.390 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:298 - TLS handshake failed with 127.0.0.1:57114
+2025-02-12 01:22:02.964 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:298 - TLS handshake failed with 127.0.0.1:53030
+2025-02-12 01:22:05.498 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:298 - TLS handshake failed with 127.0.0.1:53040
+2025-02-12 01:22:06.083 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:298 - TLS handshake failed with 127.0.0.1:53060
+2025-02-12 01:22:06.620 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:298 - TLS handshake failed with 127.0.0.1:53078
+2025-02-12 01:22:07.094 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:298 - TLS handshake failed with 127.0.0.1:53084
+2025-02-12 01:22:07.550 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:298 - TLS handshake failed with 127.0.0.1:53114
+2025-02-12 01:22:08.213 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:298 - TLS handshake failed with 127.0.0.1:53132
+2025-02-12 01:22:08.560 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:298 - TLS handshake failed with 127.0.0.1:53158
