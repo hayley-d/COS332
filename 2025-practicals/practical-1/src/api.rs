@@ -108,8 +108,8 @@ async fn handle_get(request: Request, state: Arc<Mutex<SharedState>>) -> Respons
         return response
             .code(HttpCode::Teapot)
             .body(get_bytes(state, PathBuf::from(r"static/teapot.html"), "/coffee").await);
-    } else if request.uri == "/fib" || request.uri == "/fib/next" {
-        let output = match Command::new("./cgi/cgi").arg("next").output().await {
+    } else if request.uri == "/time" || request.uri == "/show_time.cgi" {
+        let output = match Command::new("./cgi/show_time.cgi").output().await {
             Ok(o) => o,
             Err(e) => {
                 error!(target:"error_logger","Failed to run cgi program: {:?}",e);
@@ -127,8 +127,27 @@ async fn handle_get(request: Request, state: Arc<Mutex<SharedState>>) -> Respons
         }
 
         response.add_body(output.stdout);
-    } else if request.uri == "/fib/prev" {
-        let output = match Command::new("./cgi/cgi").arg("prev").output().await {
+    } else if request.uri == "/set_uk_time.cgi" {
+        let output = match Command::new("./cgi/set_uk_time.cgi").output().await {
+            Ok(o) => o,
+            Err(e) => {
+                error!(target:"error_logger","Failed to run cgi program: {:?}",e);
+                return response
+                    .body(get_bytes(state, PathBuf::from(r"static/404.html"), "/404").await);
+            }
+        };
+
+        if output.status.success() {
+            info!(target:"request_logger","CGI executed successfully");
+        } else {
+            error!(target:"error_logger","CGI program failed");
+            return response
+                .body(get_bytes(state, PathBuf::from(r"static/404.html"), "/404").await);
+        }
+
+        response.add_body(output.stdout);
+    } else if request.uri == "/set_sa_time.cgi" {
+        let output = match Command::new("./cgi/set_sa_time.cgi").output().await {
             Ok(o) => o,
             Err(e) => {
                 error!(target:"error_logger","Failed to run cgi program: {:?}",e);

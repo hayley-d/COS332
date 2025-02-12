@@ -43,3 +43,76 @@
 2025-02-12 01:22:08.568 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:294 - TLS handshake successful with 127.0.0.1:53174
 2025-02-12 01:22:08.575 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:141 - CGI executed successfully
 2025-02-12 01:22:08.656 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:48:55.628 [INFO] main /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:195 - Server Started
+2025-02-12 14:48:55.628 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-02-12 14:48:55.628 [INFO] main /home/hayley/Documents/COS332/2025-practicals/practical-1/src/socket.rs:96 - TLS certificate and keys configured
+2025-02-12 14:49:01.965 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:294 - TLS handshake successful with 127.0.0.1:36284
+2025-02-12 14:49:01.965 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:49:02.061 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:49:04.999 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:294 - TLS handshake successful with 127.0.0.1:36298
+2025-02-12 14:49:05.001 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:104 - GET /home status: 200
+2025-02-12 14:49:05.077 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:50:15.210 [INFO] main /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:195 - Server Started
+2025-02-12 14:50:15.210 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-02-12 14:50:15.210 [INFO] main /home/hayley/Documents/COS332/2025-practicals/practical-1/src/socket.rs:96 - TLS certificate and keys configured
+2025-02-12 14:50:17.175 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:294 - TLS handshake successful with 127.0.0.1:45982
+2025-02-12 14:50:17.177 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:104 - GET /home status: 200
+2025-02-12 14:50:17.249 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:50:20.083 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:294 - TLS handshake successful with 127.0.0.1:36906
+2025-02-12 14:50:20.223 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:122 - CGI executed successfully
+2025-02-12 14:50:20.280 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:50:26.066 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:294 - TLS handshake successful with 127.0.0.1:36934
+2025-02-12 14:50:26.066 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:151 - GET /set_uk_time.cgi status: 404
+2025-02-12 14:52:07.629 [INFO] main /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:195 - Server Started
+2025-02-12 14:52:07.629 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-02-12 14:52:07.629 [INFO] main /home/hayley/Documents/COS332/2025-practicals/practical-1/src/socket.rs:96 - TLS certificate and keys configured
+2025-02-12 14:52:12.414 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:294 - TLS handshake successful with 127.0.0.1:38516
+2025-02-12 14:52:12.416 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:122 - CGI executed successfully
+2025-02-12 14:52:12.516 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:52:16.194 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:294 - TLS handshake successful with 127.0.0.1:38526
+2025-02-12 14:52:16.195 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:151 - GET /set_uk_time.cgi status: 404
+2025-02-12 14:54:39.956 [INFO] main /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:195 - Server Started
+2025-02-12 14:54:39.956 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-02-12 14:54:39.957 [INFO] main /home/hayley/Documents/COS332/2025-practicals/practical-1/src/socket.rs:96 - TLS certificate and keys configured
+2025-02-12 14:54:41.480 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:294 - TLS handshake successful with 127.0.0.1:57824
+2025-02-12 14:54:41.481 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:122 - CGI executed successfully
+2025-02-12 14:54:41.578 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:54:43.740 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:294 - TLS handshake successful with 127.0.0.1:57836
+2025-02-12 14:54:43.925 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:141 - CGI executed successfully
+2025-02-12 14:54:43.952 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:170 - GET /show_time.cgi status: 404
+2025-02-12 14:55:46.313 [INFO] main /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:195 - Server Started
+2025-02-12 14:55:46.313 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-02-12 14:55:46.313 [INFO] main /home/hayley/Documents/COS332/2025-practicals/practical-1/src/socket.rs:96 - TLS certificate and keys configured
+2025-02-12 14:55:51.299 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:294 - TLS handshake successful with 127.0.0.1:48162
+2025-02-12 14:55:51.301 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:122 - CGI executed successfully
+2025-02-12 14:55:51.399 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:55:53.401 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:294 - TLS handshake successful with 127.0.0.1:48178
+2025-02-12 14:55:53.408 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:141 - CGI executed successfully
+2025-02-12 14:55:53.497 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:122 - CGI executed successfully
+2025-02-12 14:55:53.501 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:55:53.541 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:55:56.626 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:294 - TLS handshake successful with 127.0.0.1:48210
+2025-02-12 14:55:56.750 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:160 - CGI executed successfully
+2025-02-12 14:55:56.777 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:122 - CGI executed successfully
+2025-02-12 14:55:56.781 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:55:56.811 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:55:58.571 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:294 - TLS handshake successful with 127.0.0.1:48238
+2025-02-12 14:55:58.573 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:141 - CGI executed successfully
+2025-02-12 14:55:58.635 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:122 - CGI executed successfully
+2025-02-12 14:55:58.638 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:55:58.669 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:55:59.917 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:294 - TLS handshake successful with 127.0.0.1:49182
+2025-02-12 14:55:59.919 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:160 - CGI executed successfully
+2025-02-12 14:55:59.981 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:122 - CGI executed successfully
+2025-02-12 14:55:59.984 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:56:00.014 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:56:01.193 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:294 - TLS handshake successful with 127.0.0.1:49220
+2025-02-12 14:56:01.194 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:141 - CGI executed successfully
+2025-02-12 14:56:01.278 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:122 - CGI executed successfully
+2025-02-12 14:56:01.283 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:56:01.322 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:56:03.628 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/server.rs:294 - TLS handshake successful with 127.0.0.1:49226
+2025-02-12 14:56:03.630 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:160 - CGI executed successfully
+2025-02-12 14:56:03.701 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:122 - CGI executed successfully
+2025-02-12 14:56:03.704 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
+2025-02-12 14:56:03.733 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-1/src/api.rs:100 - GET / from status 200
