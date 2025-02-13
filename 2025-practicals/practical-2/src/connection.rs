@@ -1,7 +1,6 @@
 use crate::database::Database;
 use core::str;
 use libc::*;
-use rand::Rng;
 use std::error::Error;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -58,7 +57,7 @@ pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
         }
 
         println!("Server is listening on port {}", port);
-        return Ok(socket_fd);
+        Ok(socket_fd)
     }
 }
 
@@ -92,7 +91,6 @@ pub async fn handle_telnet_connection(
 
             let mut input = str::from_utf8(&buffer[0..bytes_read as usize])
                 .unwrap_or_default()
-                .trim()
                 .split_whitespace();
 
             let command = input.next();
@@ -196,5 +194,5 @@ pub async fn handle_telnet_connection(
         }
         close(client_fd);
     }
-    return Ok(());
+    Ok(())
 }

@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection, Result};
+use rusqlite::{params, Connection};
 
 pub struct Database {
     conn: Connection,

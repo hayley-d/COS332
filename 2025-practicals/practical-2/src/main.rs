@@ -57,7 +57,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let db_clone: Arc<Mutex<Database>> = Arc::clone(&database);
 
         tokio::spawn(async move {
-            let _ = handle_telnet_connection(client_fd, db_clone);
+            let _ = handle_telnet_connection(client_fd, db_clone).await;
         });
         drop(permit);
         println!("Connection dropped");
