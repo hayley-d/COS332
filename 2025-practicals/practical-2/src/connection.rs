@@ -5,6 +5,13 @@ use std::error::Error;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+const CLEAR_SCREEN: &str = "\x1B[2J\x1B[H";
+const BOLD: &str = "\x1B[1m";
+const RESET: &str = "\x1B[0m";
+const MAGENTA: &str = "\x1B[199m";
+const BLUE: &str = "\x1B[45m";
+const PINK: &str = "\x1B[212m";
+
 pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
     unsafe {
         // Create a socket
@@ -67,7 +74,10 @@ pub async fn handle_telnet_connection(
 ) -> Result<(), Box<dyn Error>> {
     unsafe {
         let mut buffer: [u8; 1024] = [0; 1024];
-        let welcome_msg: &str = "Welcome to the Telnet Friend Database!\n";
+        let welcome_msg: String = format!(
+            "{}{}Welcome to the Telnet Friend Database!{}\n",
+            CLEAR_SCREEN, BOLD, RESET
+        );
 
         write(
             client_fd,
@@ -76,8 +86,9 @@ pub async fn handle_telnet_connection(
         );
 
         loop {
-            let welcome_msg: &str =
-                "Available Commands:\n1) Add <name> <phone>\n2) Get <name>\n3) Delete <name>\nEXIT\n";
+            let welcome_msg: String =
+                format!("Available Commands:\n1) Add <name> <phone> {}- Add a new friend{}\n2) Get <name> {}- Retrieve a friend's phone number{}\n3) Delete <name> {}- Remove a friend from the database{}\nEXIT {}- Disconnect from the server{}\n",PINK,RESET,PINK,RESET,PINK,RESET,PINK,RESET);
+
             write(
                 client_fd,
                 welcome_msg.as_ptr() as *const c_void,
