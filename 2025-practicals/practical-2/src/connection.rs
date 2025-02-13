@@ -8,11 +8,8 @@ use tokio::sync::Mutex;
 const CLEAR_SCREEN: &str = "\x1B[2J\x1B[H";
 const BOLD: &str = "\x1B[1m";
 const RESET: &str = "\x1B[0m";
-const MAGENTA: &str = "\x1B[199m";
-const BLUE: &str = "\x1B[45m";
 const PINK: &str = "\x1B[212m";
 const HEARTBEAT_INTERVAL: tokio::time::Duration = tokio::time::Duration::from_secs(10);
-const TIMEOUT: tokio::time::Duration = tokio::time::Duration::from_secs(15);
 
 pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
     unsafe {
@@ -88,7 +85,7 @@ pub async fn handle_telnet_connection(
         );
 
         let heartbeat_fd = client_fd;
-        let heartbeat_task = tokio::spawn(async move {
+        tokio::spawn(async move {
             loop {
                 tokio::time::sleep(HEARTBEAT_INTERVAL).await;
                 let ping_msg = "PING\n";
@@ -125,6 +122,7 @@ pub async fn handle_telnet_connection(
             let command = input.next();
 
             match command {
+                Some("PONG") => continue,
                 Some("ADD") | Some("add") | Some("Add") => {
                     if let (Some(name), Some(phone)) = (input.next(), input.next()) {
                         match database.lock().await.add_friend(name, phone) {
