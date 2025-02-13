@@ -1,10 +1,10 @@
+use crate::database::Database;
 use core::str;
 use libc::*;
 use rand::Rng;
 use std::error::Error;
 use std::sync::Arc;
-
-use crate::question::Question;
+use tokio::sync::Mutex;
 
 pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
     unsafe {
@@ -62,15 +62,14 @@ pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
     }
 }
 
-pub fn handle_telnet_connection(
+pub async fn handle_telnet_connection(
     client_fd: i32,
-    questions: Arc<Vec<Question>>,
+    database: Arc<Mutex<Database>>,
 ) -> Result<(), Box<dyn Error>> {
     unsafe {
         let mut buffer: [u8; 1024] = [0; 1024];
-        let welcome_msg: &str = "Welcome to the Telnet server!\n";
+        let welcome_msg: &str = "Welcome to the Telnet Friend Database!\n";
 
-        // write the welcome message to the client
         write(
             client_fd,
             welcome_msg.as_ptr() as *const c_void,
@@ -78,7 +77,8 @@ pub fn handle_telnet_connection(
         );
 
         loop {
-            let welcome_msg: &str = "Do you want a question? (y/n): ";
+            let welcome_msg: &str =
+                "Available Commands:\n1) Add <name> <phone>\n2) Get <name>\n3) Delete <name>\nEXIT\n";
             write(
                 client_fd,
                 welcome_msg.as_ptr() as *const c_void,
@@ -90,46 +90,92 @@ pub fn handle_telnet_connection(
                 break;
             }
 
-            let input: &str = str::from_utf8(&buffer[0..bytes_read as usize])
+            let mut input = str::from_utf8(&buffer[0..bytes_read as usize])
                 .unwrap_or_default()
-                .trim();
+                .trim()
+                .split_whitespace();
 
-            match input {
-                "y" => {
-                    let random: usize = rand::thread_rng().gen_range(0..questions.len());
-                    let question: &Question = &questions[random];
-                    let question_txt: String = format!(
-                        "{}\nEnter the correct answer(s) (e.g., 1 or 1,2 or leave blank): ",
-                        question.print()
-                    );
+            let command = input.next();
 
-                    write(
-                        client_fd,
-                        question_txt.as_ptr() as *const c_void,
-                        question_txt.len(),
-                    );
-
-                    let bytes_read: usize =
-                        read(client_fd, buffer.as_mut_ptr() as *mut c_void, buffer.len()) as usize;
-
-                    if bytes_read <= 0 {
-                        break;
+            match command {
+                Some("ADD") | Some("add") => {
+                    if let (Some(name), Some(phone)) = (input.next(), input.next()) {
+                        match database.lock().await.add_friend(name, phone) {
+                            Ok(_) => {
+                                let response: String =
+                                    format!("Added {} with number {}", name, phone);
+                                write(
+                                    client_fd,
+                                    response.as_ptr() as *const c_void,
+                                    response.len(),
+                                );
+                            }
+                            Err(e) => {
+                                let response: String =
+                                    format!("Error adding friend to the database:{:?}", e);
+                                write(
+                                    client_fd,
+                                    response.as_ptr() as *const c_void,
+                                    response.len(),
+                                );
+                            }
+                        }
                     }
-
-                    let answer_input: &str = str::from_utf8(&buffer[0..bytes_read])
-                        .unwrap_or_default()
-                        .trim();
-
-                    let answers: Vec<usize> = answer_input
-                        .split(',')
-                        .filter_map(|s| s.parse::<usize>().ok().map(|n| n - 1))
-                        .collect();
-
-                    let answers = question.check_answer(answers);
-
-                    write(client_fd, answers.as_ptr() as *const c_void, answers.len());
                 }
-                "n" => {
+                Some("GET") | Some("get") => {
+                    if let Some(name) = input.next() {
+                        match database.lock().await.get_friend(name) {
+                            Ok(Some(phone)) => {
+                                let response: String = format!("{} : {}", name, phone);
+                                write(
+                                    client_fd,
+                                    response.as_ptr() as *const c_void,
+                                    response.len(),
+                                );
+                            }
+                            Ok(None) => {
+                                let response: String = String::from("Error friend not found");
+                                write(
+                                    client_fd,
+                                    response.as_ptr() as *const c_void,
+                                    response.len(),
+                                );
+                            }
+                            Err(e) => {
+                                let response: String = format!("Error retrieving friend:{:?}", e);
+                                write(
+                                    client_fd,
+                                    response.as_ptr() as *const c_void,
+                                    response.len(),
+                                );
+                            }
+                        }
+                    }
+                }
+                Some("DELETE") | Some("delete") => {
+                    if let Some(name) = input.next() {
+                        match database.lock().await.delete_friend(name) {
+                            Ok(_) => {
+                                let response: String =
+                                    format!("{} has been removed from the database", name);
+                                write(
+                                    client_fd,
+                                    response.as_ptr() as *const c_void,
+                                    response.len(),
+                                );
+                            }
+                            Err(e) => {
+                                let response: String = format!("Error removing friend:{:?}", e);
+                                write(
+                                    client_fd,
+                                    response.as_ptr() as *const c_void,
+                                    response.len(),
+                                );
+                            }
+                        }
+                    }
+                }
+                Some("EXIT") | Some("exit") => {
                     let goodbye_msg: &str = "Goodbye!\n";
                     write(
                         client_fd,
@@ -139,7 +185,7 @@ pub fn handle_telnet_connection(
                     break;
                 }
                 _ => {
-                    let error_msg: &str = "Invalid input. Please enter 'y' or 'n'.\n";
+                    let error_msg: &str = "Invalid input. Please enter a valid command.\n";
                     write(
                         client_fd,
                         error_msg.as_ptr() as *const c_void,

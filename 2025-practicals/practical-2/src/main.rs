@@ -1,8 +1,8 @@
 use libc::*;
 use practical_2::connection::{create_raw_socket, handle_telnet_connection};
-use practical_2::question::Question;
+use practical_2::database::Database;
 use std::sync::Arc;
-use tokio::sync::Semaphore;
+use tokio::sync::{Mutex, Semaphore};
 
 use std::error::Error;
 
@@ -22,7 +22,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    let questions: Arc<Vec<Question>> = Arc::new(Question::parse_file().await);
+    let database: Arc<Mutex<Database>> = Arc::new(Mutex::new(
+        Database::new("friends.db").expect("Failed to initialize database"),
+    ));
+
     let server_fd = create_raw_socket(port).unwrap();
 
     // Limit the amout of async connections to 5
@@ -51,9 +54,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 continue;
             }
         }
-        let question_clone: Arc<Vec<Question>> = Arc::clone(&questions);
+        let db_clone: Arc<Mutex<Database>> = Arc::clone(&database);
+
         tokio::spawn(async move {
-            let _ = handle_telnet_connection(client_fd, question_clone);
+            let _ = handle_telnet_connection(client_fd, db_clone);
         });
         drop(permit);
         println!("Connection dropped");
