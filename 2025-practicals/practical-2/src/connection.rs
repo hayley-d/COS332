@@ -105,7 +105,7 @@ pub async fn handle_telnet_connection(
 
         loop {
             let welcome_msg: String =
-                format!("Available Commands:\n1) Add <name> <phone> {}- Add a new friend{}\n2) Get <name> {}- Retrieve a friend's phone number{}\n3) Delete <name> {}- Remove a friend from the database{}\nEXIT {}- Disconnect from the server{}\n",PINK,RESET,PINK,RESET,PINK,RESET,PINK,RESET);
+                format!("Available Commands:\n1) ADD <name> <phone> {}- Add a new friend{}\n2) GET <name> {}- Retrieve a friend's phone number{}\n3) DELETE <name> {}- Remove a friend from the database{}\nEXIT {}- Disconnect from the server{}\n",PINK,RESET,PINK,RESET,PINK,RESET,PINK,RESET);
 
             write(
                 client_fd,
@@ -125,12 +125,12 @@ pub async fn handle_telnet_connection(
             let command = input.next();
 
             match command {
-                Some("ADD") | Some("add") => {
+                Some("ADD") | Some("add") | Some("Add") => {
                     if let (Some(name), Some(phone)) = (input.next(), input.next()) {
                         match database.lock().await.add_friend(name, phone) {
                             Ok(_) => {
                                 let response: String =
-                                    format!("Added {} with number {}", name, phone);
+                                    format!("Added {} with number {}\n", name, phone);
                                 write(
                                     client_fd,
                                     response.as_ptr() as *const c_void,
@@ -139,7 +139,7 @@ pub async fn handle_telnet_connection(
                             }
                             Err(e) => {
                                 let response: String =
-                                    format!("Error adding friend to the database:{:?}", e);
+                                    format!("Error adding friend to the database:{:?}\n", e);
                                 write(
                                     client_fd,
                                     response.as_ptr() as *const c_void,
@@ -149,11 +149,11 @@ pub async fn handle_telnet_connection(
                         }
                     }
                 }
-                Some("GET") | Some("get") => {
+                Some("GET") | Some("get") | Some("Get") => {
                     if let Some(name) = input.next() {
                         match database.lock().await.get_friend(name) {
                             Ok(Some(phone)) => {
-                                let response: String = format!("{} : {}", name, phone);
+                                let response: String = format!("{} : {}\n", name, phone);
                                 write(
                                     client_fd,
                                     response.as_ptr() as *const c_void,
@@ -161,7 +161,7 @@ pub async fn handle_telnet_connection(
                                 );
                             }
                             Ok(None) => {
-                                let response: String = String::from("Error friend not found");
+                                let response: String = String::from("Error friend not found\n");
                                 write(
                                     client_fd,
                                     response.as_ptr() as *const c_void,
@@ -169,7 +169,7 @@ pub async fn handle_telnet_connection(
                                 );
                             }
                             Err(e) => {
-                                let response: String = format!("Error retrieving friend:{:?}", e);
+                                let response: String = format!("Error retrieving friend:{:?}\n", e);
                                 write(
                                     client_fd,
                                     response.as_ptr() as *const c_void,
@@ -179,12 +179,12 @@ pub async fn handle_telnet_connection(
                         }
                     }
                 }
-                Some("DELETE") | Some("delete") => {
+                Some("DELETE") | Some("delete") | Some("Delete") => {
                     if let Some(name) = input.next() {
                         match database.lock().await.delete_friend(name) {
                             Ok(_) => {
                                 let response: String =
-                                    format!("{} has been removed from the database", name);
+                                    format!("{} has been removed from the database.\n", name);
                                 write(
                                     client_fd,
                                     response.as_ptr() as *const c_void,
@@ -192,7 +192,7 @@ pub async fn handle_telnet_connection(
                                 );
                             }
                             Err(e) => {
-                                let response: String = format!("Error removing friend:{:?}", e);
+                                let response: String = format!("Error removing friend:{:?}\n", e);
                                 write(
                                     client_fd,
                                     response.as_ptr() as *const c_void,
