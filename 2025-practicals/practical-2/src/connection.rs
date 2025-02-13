@@ -9,8 +9,8 @@ const CLEAR_SCREEN: &str = "\x1B[2J\x1B[H";
 const BOLD: &str = "\x1B[1m";
 const RESET: &str = "\x1B[0m";
 const PINK: &str = "\x1B[212m";
-const HEARTBEAT_INTERVAL: tokio::time::Duration = tokio::time::Duration::from_secs(10);
-const TIMEOUT: tokio::time::Duration = tokio::time::Duration::from_secs(15);
+const HEARTBEAT_INTERVAL: tokio::time::Duration = tokio::time::Duration::from_secs(5);
+const TIMEOUT: tokio::time::Duration = tokio::time::Duration::from_secs(5);
 
 pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
     unsafe {
@@ -68,6 +68,31 @@ pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
     }
 }
 
+pub async fn heartbeat_check(heartbeat_fd: i32, mut heartbeat_rx: tokio::sync::mpsc::Receiver<()>) {
+    println!("New task spawned");
+    unsafe {
+        loop {
+            tokio::time::sleep(HEARTBEAT_INTERVAL).await;
+            let ping_msg = "PING\n";
+            if write(
+                heartbeat_fd,
+                ping_msg.as_ptr() as *const c_void,
+                ping_msg.len(),
+            ) < 0
+            {
+                break;
+            }
+
+            println!("Check heartbeats");
+            if (tokio::time::timeout(TIMEOUT, heartbeat_rx.recv()).await).is_err() {
+                println!("Client timed out");
+                close(heartbeat_fd);
+                break;
+            }
+        }
+    }
+}
+
 pub async fn handle_telnet_connection(
     client_fd: i32,
     database: Arc<Mutex<Database>>,
@@ -88,26 +113,7 @@ pub async fn handle_telnet_connection(
         let (heartbeat_tx, mut heartbeat_rx) = tokio::sync::mpsc::channel(1);
 
         let heartbeat_fd = client_fd;
-        tokio::spawn(async move {
-            loop {
-                tokio::time::sleep(HEARTBEAT_INTERVAL).await;
-                let ping_msg = "PING\n";
-                if write(
-                    heartbeat_fd,
-                    ping_msg.as_ptr() as *const c_void,
-                    ping_msg.len(),
-                ) < 0
-                {
-                    break;
-                }
-
-                if (tokio::time::timeout(TIMEOUT, heartbeat_rx.recv()).await).is_err() {
-                    eprintln!("Client timed out");
-                    close(heartbeat_fd);
-                    break;
-                }
-            }
-        });
+        tokio::spawn(async move {});
 
         loop {
             let welcome_msg: String =
