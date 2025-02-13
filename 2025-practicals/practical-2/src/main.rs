@@ -61,6 +61,5 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let _ = handle_telnet_connection(client_fd, db_clone).await;
         });
         drop(permit);
-        println!("Connection dropped");
     }
 }

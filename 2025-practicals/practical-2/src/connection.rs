@@ -69,7 +69,6 @@ pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
 }
 
 pub async fn heartbeat_check(heartbeat_fd: i32, mut heartbeat_rx: tokio::sync::mpsc::Receiver<()>) {
-    println!("New task spawned");
     unsafe {
         loop {
             tokio::time::sleep(HEARTBEAT_INTERVAL).await;
@@ -83,9 +82,7 @@ pub async fn heartbeat_check(heartbeat_fd: i32, mut heartbeat_rx: tokio::sync::m
                 break;
             }
 
-            println!("Check heartbeats");
             if (tokio::time::timeout(TIMEOUT, heartbeat_rx.recv()).await).is_err() {
-                println!("Client timed out");
                 close(heartbeat_fd);
                 break;
             }
@@ -93,27 +90,13 @@ pub async fn heartbeat_check(heartbeat_fd: i32, mut heartbeat_rx: tokio::sync::m
     }
 }
 
-pub async fn handle_telnet_connection(
+pub async fn connection_loop(
+    heartbeat_tx: tokio::sync::mpsc::Sender<()>,
     client_fd: i32,
     database: Arc<Mutex<Database>>,
-) -> Result<(), Box<dyn Error>> {
+) {
     unsafe {
         let mut buffer: [u8; 1024] = [0; 1024];
-        let welcome_msg: String = format!(
-            "{}{}Welcome to the Telnet Friend Database!{}\n",
-            CLEAR_SCREEN, BOLD, RESET
-        );
-
-        write(
-            client_fd,
-            welcome_msg.as_ptr() as *const c_void,
-            welcome_msg.len(),
-        );
-
-        let (heartbeat_tx, mut heartbeat_rx) = tokio::sync::mpsc::channel(1);
-
-        let heartbeat_fd = client_fd;
-        tokio::spawn(async move {});
 
         loop {
             let welcome_msg: String =
@@ -224,6 +207,7 @@ pub async fn handle_telnet_connection(
                         goodbye_msg.as_ptr() as *const c_void,
                         goodbye_msg.len(),
                     );
+                    close(client_fd);
                     break;
                 }
                 _ => {
@@ -236,7 +220,39 @@ pub async fn handle_telnet_connection(
                 }
             }
         }
-        close(client_fd);
+    }
+}
+
+pub async fn handle_telnet_connection(
+    client_fd: i32,
+    database: Arc<Mutex<Database>>,
+) -> Result<(), Box<dyn Error>> {
+    unsafe {
+        let welcome_msg: String = format!(
+            "{}{}Welcome to the Telnet Friend Database!{}\n",
+            CLEAR_SCREEN, BOLD, RESET
+        );
+
+        write(
+            client_fd,
+            welcome_msg.as_ptr() as *const c_void,
+            welcome_msg.len(),
+        );
+
+        let (heartbeat_tx, heartbeat_rx) = tokio::sync::mpsc::channel::<()>(1);
+        let connection_task = tokio::spawn(connection_loop(
+            heartbeat_tx,
+            client_fd,
+            Arc::clone(&database),
+        ));
+        let heartbeat_task = tokio::spawn(heartbeat_check(client_fd, heartbeat_rx));
+
+        tokio::select! {
+            _ = connection_task => {
+            },
+            _ = heartbeat_task => {
+            },
+        }
     }
     Ok(())
 }
