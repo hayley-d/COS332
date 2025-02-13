@@ -11,6 +11,8 @@ const RESET: &str = "\x1B[0m";
 const MAGENTA: &str = "\x1B[199m";
 const BLUE: &str = "\x1B[45m";
 const PINK: &str = "\x1B[212m";
+const HEARTBEAT_INTERVAL: tokio::time::Duration = tokio::time::Duration::from_secs(10);
+const TIMEOUT: tokio::time::Duration = tokio::time::Duration::from_secs(15);
 
 pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
     unsafe {
@@ -84,6 +86,22 @@ pub async fn handle_telnet_connection(
             welcome_msg.as_ptr() as *const c_void,
             welcome_msg.len(),
         );
+
+        let heartbeat_fd = client_fd;
+        let heartbeat_task = tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(HEARTBEAT_INTERVAL).await;
+                let ping_msg = "PING\n";
+                if write(
+                    heartbeat_fd,
+                    ping_msg.as_ptr() as *const c_void,
+                    ping_msg.len(),
+                ) < 0
+                {
+                    break;
+                }
+            }
+        });
 
         loop {
             let welcome_msg: String =

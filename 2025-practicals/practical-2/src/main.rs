@@ -54,6 +54,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 continue;
             }
         }
+
         let db_clone: Arc<Mutex<Database>> = Arc::clone(&database);
 
         tokio::spawn(async move {
