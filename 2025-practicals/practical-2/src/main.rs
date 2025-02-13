@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let permit = semaphore.acquire().await.unwrap();
         println!(
             "Current concurrent connections: {}",
-            semaphore.available_permits() - 5
+            5 - semaphore.available_permits()
         );
 
         unsafe {
