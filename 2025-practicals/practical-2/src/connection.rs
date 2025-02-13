@@ -10,6 +10,7 @@ const BOLD: &str = "\x1B[1m";
 const RESET: &str = "\x1B[0m";
 const PINK: &str = "\x1B[212m";
 const HEARTBEAT_INTERVAL: tokio::time::Duration = tokio::time::Duration::from_secs(10);
+const TIMEOUT: tokio::time::Duration = tokio::time::Duration::from_secs(15);
 
 pub fn create_raw_socket(port: u16) -> Result<i32, Box<dyn Error>> {
     unsafe {
@@ -84,6 +85,8 @@ pub async fn handle_telnet_connection(
             welcome_msg.len(),
         );
 
+        let (heartbeat_tx, mut heartbeat_rx) = tokio::sync::mpsc::channel(1);
+
         let heartbeat_fd = client_fd;
         tokio::spawn(async move {
             loop {
@@ -95,6 +98,12 @@ pub async fn handle_telnet_connection(
                     ping_msg.len(),
                 ) < 0
                 {
+                    break;
+                }
+
+                if (tokio::time::timeout(TIMEOUT, heartbeat_rx.recv()).await).is_err() {
+                    eprintln!("Client timed out");
+                    close(heartbeat_fd);
                     break;
                 }
             }
@@ -122,7 +131,9 @@ pub async fn handle_telnet_connection(
             let command = input.next();
 
             match command {
-                Some("PONG") => continue,
+                Some("PONG") | Some("pong") => {
+                    let _ = heartbeat_tx.send(()).await;
+                }
                 Some("ADD") | Some("add") | Some("Add") => {
                     if let (Some(name), Some(phone)) = (input.next(), input.next()) {
                         match database.lock().await.add_friend(name, phone) {
