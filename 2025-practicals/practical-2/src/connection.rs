@@ -8,7 +8,8 @@ use tokio::sync::Mutex;
 const CLEAR_SCREEN: &str = "\x1B[2J\x1B[H";
 const BOLD: &str = "\x1B[1m";
 const RESET: &str = "\x1B[0m";
-const PINK: &str = "\x1B[212m";
+const PINK: &str = "\x1B[35m";
+const CYAN: &str = "\x1B[36m";
 const HEARTBEAT_INTERVAL: tokio::time::Duration = tokio::time::Duration::from_secs(5);
 const TIMEOUT: tokio::time::Duration = tokio::time::Duration::from_secs(5);
 
@@ -72,7 +73,10 @@ pub async fn heartbeat_check(heartbeat_fd: i32, mut heartbeat_rx: tokio::sync::m
     unsafe {
         loop {
             tokio::time::sleep(HEARTBEAT_INTERVAL).await;
-            let ping_msg = "PING\n";
+            let ping_msg = format!(
+                "PING\nPlease respond with {}{}PONG{} if you are still active: \n",
+                BOLD, CYAN, RESET
+            );
             if write(
                 heartbeat_fd,
                 ping_msg.as_ptr() as *const c_void,
