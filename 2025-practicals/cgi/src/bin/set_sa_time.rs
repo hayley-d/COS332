@@ -10,7 +10,7 @@ struct Config {
 
 fn write_config(config: &Config) {
     let yaml = serde_yaml::to_string(config).expect("Failed to serialize YAML");
-    fs::write("backend.yaml", yaml).expect("Failed to write file");
+    fs::write("static/backend.yaml", yaml).expect("Failed to write file");
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -22,6 +22,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     write_config(&new_config);
 
-    println!("<html><head><meta http-equiv='refresh' content='0;url=show_time.cgi'></head><body><h3>Switching to South Africa time</h3></body></html>");
+    println!("<!DOCTYPE html>");
+    println!("<html lang=\"en\">");
+    println!("<head>");
+    println!("<meta http-equiv='refresh' content='0;url=show_time.cgi'>");
+    println!("</head>");
+    println!("<body>");
+    println!("<h3>Switching to South Africa time</h3>");
+    println!("</body>");
+    println!("</html>");
+
     Ok(())
 }
