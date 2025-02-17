@@ -109,7 +109,13 @@ async fn handle_get(request: Request, state: Arc<Mutex<SharedState>>) -> Respons
                 .code(HttpCode::Teapot)
                 .body(get_bytes(state, PathBuf::from(r"static/teapot.html"), "/coffee").await);
         }
-        "/calculate" => {}
+        uri if uri.starts_with("/calcualte") => {
+            let params = parse_query_params(uri);
+            if let Some(input) = params.get("input") {
+                info!(target: "request_logger", "GET /calculate?input={} status: 200", input);
+                println!("Input: {input}");
+            }
+        }
         _ => {
             error!(target: "error_logger","Failed to serve request GET {}", request.uri);
             info!(target: "request_logger","GET {} status: 404", request.uri);
@@ -121,6 +127,19 @@ async fn handle_get(request: Request, state: Arc<Mutex<SharedState>>) -> Respons
     }
 
     response
+}
+
+fn parse_query_params(uri: &str) -> HashMap<String, String> {
+    let mut params = HashMap::new();
+    if let Some(query_start) = uri.find('?') {
+        let query_string = &uri[query_start + 1..];
+        for pair in query_string.split('&') {
+            if let Some((key, value)) = pair.split_once('=') {
+                params.insert(key.to_string(), value.to_string());
+            }
+        }
+    }
+    params
 }
 
 /// Handles HTTP POST requests for specific routes like `/signup` and `/login`.
