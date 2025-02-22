@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Calculator</title>
+    <script>
+        async function sendRequest(value) {
+            const display = document.getElementById("display");
+            
+            let url = `/calculate?input=${encodeURIComponent(value)}`;
+
+            try {
+                let response = await fetch(url);
+                if (response.ok) {
+                    let result = await response.text();
+                    display.value = result;
+                } else {
+                    display.value = "Error";
+                }
+            } catch (error) {
+                display.value = "Network Error";
+            }
+        }
+        
+        function calculate(value) {
+            sendRequest(value);
+        }
+
+        function clearDisplay() {
+            document.getElementById("display").value = "";
+        }
+    </script>
+</head>
+<body>
+    <h2>Calculator</h2>
+    <input type="text" id="display" readonly>
+    <br>
+    <button onclick="calculate('1')">1</button>
+    <button onclick="calculate('2')">2</button>
+    <button onclick="calculate('3')">3</button>
+    <button onclick="calculate('+')">+</button>
+    <br>
+    <button onclick="calculate('4')">4</button>
+    <button onclick="calculate('5')">5</button>
+    <button onclick="calculate('6')">6</button>
+    <button onclick="calculate('-')">-</button>
+    <br>
+    <button onclick="calculate('7')">7</button>
+    <button onclick="calculate('8')">8</button>
+    <button onclick="calculate('9')">9</button>
+    <button onclick="calculate('*')">*</button>
+    <br>
+    <button onclick="calculate('0')">0</button>
+    <button onclick="clearDisplay()">C</button>
+    <button onclick="calculate('/')">/</button>
+</body>
+</html>
+

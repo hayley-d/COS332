@@ -70,9 +70,13 @@ async fn get_bytes(
 ///
 /// # Returns
 /// A `Response` object generated based on the request.
-pub async fn handle_response(request: Request, state: Arc<Mutex<SharedState>>) -> Response {
+pub async fn handle_response(
+    request: Request,
+    state: Arc<Mutex<SharedState>>,
+    user_state: Arc<Mutex<crate::server::UserState>>,
+) -> Response {
     match request.method {
-        HttpMethod::GET => handle_get(request, state).await,
+        HttpMethod::GET => handle_get(request, state, user_state).await,
         HttpMethod::POST => handle_post(request, state).await,
         HttpMethod::PUT => handle_put(request).await,
         HttpMethod::PATCH => handle_patch(request).await,
@@ -88,7 +92,11 @@ pub async fn handle_response(request: Request, state: Arc<Mutex<SharedState>>) -
 ///
 /// # Returns
 /// A `Response` object with the appropriate content and status code.
-async fn handle_get(request: Request, state: Arc<Mutex<SharedState>>) -> Response {
+async fn handle_get(
+    request: Request,
+    state: Arc<Mutex<SharedState>>,
+    user_state: Arc<Mutex<crate::server::UserState>>,
+) -> Response {
     let mut response = Response::default()
         .await
         .compression(request.is_compression_supported());
@@ -109,11 +117,62 @@ async fn handle_get(request: Request, state: Arc<Mutex<SharedState>>) -> Respons
                 .body(get_bytes(state, PathBuf::from(r"static/teapot.html"), "/coffee").await);
         }
         uri if uri.starts_with("/calcualte") => {
+            let mut user_state = user_state.lock().await;
             let params = parse_query_params(uri);
             if let Some(input) = params.get("input") {
                 info!(target: "request_logger", "GET /calculate?input={} status: 200", input);
-                println!("Input: {input}");
+                match input.as_str() {
+                    "+" | "-" | "/" | "*" => user_state.buffer(String::from(input)),
+                    _ => {
+                        let operator: Option<String> = user_state.pop();
+                        let input: f64 = match input.parse() {
+                            Ok(v) => v,
+                            Err(_) => 0.0,
+                        };
+                        match operator {
+                            Some(op) => match op.as_str() {
+                                "+" => {
+                                    let val: f64 = user_state.value + input;
+                                    user_state.value = val;
+                                }
+                                "-" => {
+                                    let val: f64 = user_state.value - input;
+                                    user_state.value = val;
+                                }
+                                "*" => {
+                                    let val: f64 = user_state.value * input;
+                                    user_state.value = val;
+                                }
+                                "/" => {
+                                    let val: f64 = user_state.value / input;
+                                    user_state.value = val;
+                                }
+                                _ => {}
+                            },
+                            None => {
+                                user_state.value = input;
+                            }
+                        }
+                    }
+                }
+
+                return response
+                    .code(HttpCode::Ok)
+                    .content_type(ContentType::Text)
+                    .body(user_state.value.to_string().as_bytes().to_vec());
             }
+        }
+        "/cal" => {
+            let content: String = match fs::read_to_string("static/calculator.html").await {
+                Ok(content) => content,
+                Err(_) => fs::read_to_string("static/404.html")
+                    .await
+                    .expect("404 Not Found"),
+            };
+
+            return response
+                .code(HttpCode::Ok)
+                .body(content.as_bytes().to_vec());
         }
         _ => {
             error!(target: "error_logger","Failed to serve request GET {}", request.uri);

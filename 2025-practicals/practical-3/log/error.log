@@ -1,0 +1,2 @@
+2025-02-22 20:14:22.195 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-3/src/server.rs:321 - TLS handshake failed with 127.0.0.1:46876
+2025-02-22 20:14:25.478 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-3/src/server.rs:321 - TLS handshake failed with 127.0.0.1:34438

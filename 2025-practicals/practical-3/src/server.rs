@@ -11,6 +11,7 @@ use colored::Colorize;
 use dotenv::dotenv;
 use log::{error, info};
 use rand::rngs::OsRng;
+use std::collections::VecDeque;
 use std::env;
 use std::path::Path;
 use std::str::from_utf8;
@@ -125,6 +126,28 @@ impl SharedState {
                 std::process::exit(1);
             }
         }
+    }
+}
+
+pub struct UserState {
+    pub(crate) value: f64,
+    pub(crate) operator_buffer: VecDeque<String>,
+}
+
+impl UserState {
+    pub fn new() -> Arc<Mutex<UserState>> {
+        Arc::new(Mutex::new(UserState {
+            value: 0.0,
+            operator_buffer: VecDeque::new(),
+        }))
+    }
+
+    pub fn buffer(&mut self, operator: String) {
+        self.operator_buffer.push_back(operator)
+    }
+
+    pub fn pop(&mut self) -> Option<String> {
+        self.operator_buffer.pop_front()
     }
 }
 
@@ -319,6 +342,7 @@ async fn handle_connection(
     address: String,
     state: Arc<Mutex<SharedState>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let user_state: Arc<Mutex<UserState>> = UserState::new();
     loop {
         let mut buffer = [0; 4096];
 
@@ -360,7 +384,8 @@ async fn handle_connection(
             return Ok(());
         }
 
-        let mut response: Response = handle_response(request, state.clone()).await;
+        let mut response: Response =
+            handle_response(request, state.clone(), user_state.clone()).await;
 
         stream.write_all(&response.to_bytes()).await?;
         stream.flush().await?;
