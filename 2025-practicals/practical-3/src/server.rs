@@ -35,6 +35,7 @@ pub struct SharedState {
     pub redis_connection: redis::Connection,
     pub clock: Clock,
     pub client: Client,
+    pub user_states: std::collections::HashMap<Uuid, UserState>,
 }
 
 impl SharedState {
@@ -44,6 +45,7 @@ impl SharedState {
             redis_connection,
             clock,
             client,
+            user_states: std::collections::HashMap::new(),
         }
     }
 
@@ -315,7 +317,6 @@ async fn run_server(
         let handle = tokio::spawn(async move {
             if let Ok(tls_stream) = acceptor.accept(stream).await {
                 info!(target: "request_logger","TLS handshake successful with {}", address);
-
                 let _ = handle_connection(tls_stream, address.to_string(), state.clone()).await;
             } else {
                 error!(target: "error_logger","TLS handshake failed with {}", address);
@@ -342,7 +343,6 @@ async fn handle_connection(
     address: String,
     state: Arc<Mutex<SharedState>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let user_state: Arc<Mutex<UserState>> = UserState::new();
     loop {
         let mut buffer = [0; 4096];
 
@@ -375,20 +375,33 @@ async fn handle_connection(
 
         println!("{}", request);
 
-        if request.headers.iter().any(|h| h == "Connection: close") {
-            println!("Connection closed");
-            let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nBye, World!";
-            stream.write_all(response).await?;
+        if request.headers.iter().any(|h| h.starts_with("Cookie")) {
+            println!("Existing user");
+            if request.headers.iter().any(|h| h == "Connection: close") {
+                let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nBye, World!";
+                stream.write_all(response).await?;
+                stream.flush().await?;
+
+                return Ok(());
+            }
+            let mut response: Response = handle_response(request, state.clone()).await;
+
+            stream.write_all(&response.to_bytes()).await?;
             stream.flush().await?;
+        } else {
+            println!("New user");
+            let session_id: Uuid = Uuid::new_v4();
+            let user_state: Arc<Mutex<UserState>> = UserState::new();
+            let mut response: Response = handle_response(request, state.clone()).await;
 
-            return Ok(());
+            response.add_header(
+                String::from("Set-Cookie"),
+                String::from("session_id={session_id}"),
+            );
+
+            stream.write_all(&response.to_bytes()).await?;
+            stream.flush().await?;
         }
-
-        let mut response: Response =
-            handle_response(request, state.clone(), user_state.clone()).await;
-
-        stream.write_all(&response.to_bytes()).await?;
-        stream.flush().await?;
     }
 }
 

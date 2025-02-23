@@ -83,8 +83,8 @@ impl Display for Request {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Request: {{method: {}, path: {}, request_id: {},client_ip: {}}}",
-            self.method, self.uri, self.request_id, self.client_ip
+            "Request: {{method: {}, path: {}, request_id: {},client_ip: {},headers: {:?}}}",
+            self.method, self.uri, self.request_id, self.client_ip, self.headers
         )
     }
 }

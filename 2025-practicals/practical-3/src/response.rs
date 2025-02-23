@@ -51,6 +51,7 @@ impl Response {
         };
 
         self.add_header(String::from("Content-Length"), body.len().to_string());
+        self.add_header(String::from("Connection"), String::from("keep-alive"));
 
         let mut headers: Vec<String> = Vec::new();
 

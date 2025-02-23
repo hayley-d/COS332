@@ -50,15 +50,10 @@ async fn get_bytes(
     file_path: PathBuf,
     route_name: &str,
 ) -> Vec<u8> {
-    return match state.lock().await.get_cached_content(route_name).await {
+    let mut state = state.lock().await;
+    return match state.get_cached_content(route_name).await {
         Some(b) => b,
-        None => {
-            state
-                .lock()
-                .await
-                .read_and_cache_page(&file_path, route_name)
-                .await
-        }
+        None => state.read_and_cache_page(&file_path, route_name).await,
     };
 }
 
@@ -73,7 +68,7 @@ async fn get_bytes(
 pub async fn handle_response(
     request: Request,
     state: Arc<Mutex<SharedState>>,
-    user_state: Arc<Mutex<crate::server::UserState>>,
+    user_state: Arc<Mutex<HashMap<Uuid, crate::server::UserState>>>,
 ) -> Response {
     match request.method {
         HttpMethod::GET => handle_get(request, state, user_state).await,
@@ -95,7 +90,7 @@ pub async fn handle_response(
 async fn handle_get(
     request: Request,
     state: Arc<Mutex<SharedState>>,
-    user_state: Arc<Mutex<crate::server::UserState>>,
+    user_state: Arc<Mutex<HashMap<Uuid, crate::server::UserState>>>,
 ) -> Response {
     let mut response = Response::default()
         .await
@@ -116,13 +111,16 @@ async fn handle_get(
                 .code(HttpCode::Teapot)
                 .body(get_bytes(state, PathBuf::from(r"static/teapot.html"), "/coffee").await);
         }
-        uri if uri.starts_with("/calcualte") => {
+        uri if uri.starts_with("/calculate") => {
             let mut user_state = user_state.lock().await;
             let params = parse_query_params(uri);
             if let Some(input) = params.get("input") {
                 info!(target: "request_logger", "GET /calculate?input={} status: 200", input);
                 match input.as_str() {
-                    "+" | "-" | "/" | "*" => user_state.buffer(String::from(input)),
+                    "%2B" | "%2D" | "%2A" | "%2F" => {
+                        println!("Buffer operator");
+                        user_state.buffer(String::from(input));
+                    }
                     _ => {
                         let operator: Option<String> = user_state.pop();
                         let input: f64 = match input.parse() {
@@ -131,19 +129,19 @@ async fn handle_get(
                         };
                         match operator {
                             Some(op) => match op.as_str() {
-                                "+" => {
+                                "%2B" => {
                                     let val: f64 = user_state.value + input;
                                     user_state.value = val;
                                 }
-                                "-" => {
+                                "%2D" => {
                                     let val: f64 = user_state.value - input;
                                     user_state.value = val;
                                 }
-                                "*" => {
+                                "%2A" => {
                                     let val: f64 = user_state.value * input;
                                     user_state.value = val;
                                 }
-                                "/" => {
+                                "%2F" => {
                                     let val: f64 = user_state.value / input;
                                     user_state.value = val;
                                 }
@@ -156,6 +154,7 @@ async fn handle_get(
                     }
                 }
 
+                println!("Current value: {}", user_state.value);
                 return response
                     .code(HttpCode::Ok)
                     .content_type(ContentType::Text)
