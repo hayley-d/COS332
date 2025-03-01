@@ -32,10 +32,10 @@ const DEFAULT_PORT: u16 = 7878;
 
 /// Shared state structure holding connecions to Redis, PostgreSQL and a logical clock.
 pub struct SharedState {
-    pub redis_connection: redis::Connection,
-    pub clock: Clock,
-    pub client: Client,
-    pub user_states: std::collections::HashMap<Uuid, UserState>,
+    pub(crate) redis_connection: redis::Connection,
+    pub(crate) clock: Clock,
+    pub(crate) client: Client,
+    pub(crate) user_states: std::collections::HashMap<Uuid, UserState>,
 }
 
 impl SharedState {
@@ -47,6 +47,10 @@ impl SharedState {
             client,
             user_states: std::collections::HashMap::new(),
         }
+    }
+
+    pub fn insert_user(&mut self, session_id: Uuid) {
+        self.user_states.insert(session_id, UserState::new());
     }
 
     /// Increments the logical clock value.
@@ -137,11 +141,11 @@ pub struct UserState {
 }
 
 impl UserState {
-    pub fn new() -> Arc<Mutex<UserState>> {
-        Arc::new(Mutex::new(UserState {
+    pub fn new() -> UserState {
+        UserState {
             value: 0.0,
             operator_buffer: VecDeque::new(),
-        }))
+        }
     }
 
     pub fn buffer(&mut self, operator: String) {
@@ -375,8 +379,28 @@ async fn handle_connection(
 
         println!("{}", request);
 
-        if request.headers.iter().any(|h| h.starts_with("Cookie")) {
+        if let Some(index) = request.headers.iter().position(|r| r.starts_with("Cookie")) {
             println!("Existing user");
+            let cookie_value = request
+                .headers
+                .get(index)
+                .unwrap()
+                .split("=")
+                .last()
+                .unwrap();
+            let uuid_str = match Uuid::parse_str(cookie_value) {
+                Ok(uuid) => uuid,
+                Err(_) => {
+                    let response =
+                        b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nBye, World!";
+                    stream.write_all(response).await?;
+                    stream.flush().await?;
+
+                    return Ok(());
+                }
+            };
+
+            // Need to extract the uuid from the cookie header
             if request.headers.iter().any(|h| h == "Connection: close") {
                 let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nBye, World!";
                 stream.write_all(response).await?;
@@ -384,19 +408,24 @@ async fn handle_connection(
 
                 return Ok(());
             }
-            let mut response: Response = handle_response(request, state.clone()).await;
+            let mut response: Response = handle_response(request, state.clone(), uuid_str).await;
 
             stream.write_all(&response.to_bytes()).await?;
             stream.flush().await?;
         } else {
             println!("New user");
             let session_id: Uuid = Uuid::new_v4();
-            let user_state: Arc<Mutex<UserState>> = UserState::new();
-            let mut response: Response = handle_response(request, state.clone()).await;
+            let user_state: UserState = UserState::new();
+            state
+                .lock()
+                .await
+                .user_states
+                .insert(session_id, user_state);
+            let mut response: Response = handle_response(request, state.clone(), session_id).await;
 
             response.add_header(
                 String::from("Set-Cookie"),
-                String::from("session_id={session_id}"),
+                format!("session_id={session_id}"),
             );
 
             stream.write_all(&response.to_bytes()).await?;

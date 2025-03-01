@@ -68,10 +68,10 @@ async fn get_bytes(
 pub async fn handle_response(
     request: Request,
     state: Arc<Mutex<SharedState>>,
-    user_state: Arc<Mutex<HashMap<Uuid, crate::server::UserState>>>,
+    session_id: Uuid,
 ) -> Response {
     match request.method {
-        HttpMethod::GET => handle_get(request, state, user_state).await,
+        HttpMethod::GET => handle_get(request, state, session_id).await,
         HttpMethod::POST => handle_post(request, state).await,
         HttpMethod::PUT => handle_put(request).await,
         HttpMethod::PATCH => handle_patch(request).await,
@@ -90,7 +90,7 @@ pub async fn handle_response(
 async fn handle_get(
     request: Request,
     state: Arc<Mutex<SharedState>>,
-    user_state: Arc<Mutex<HashMap<Uuid, crate::server::UserState>>>,
+    session_id: Uuid,
 ) -> Response {
     let mut response = Response::default()
         .await
@@ -112,12 +112,23 @@ async fn handle_get(
                 .body(get_bytes(state, PathBuf::from(r"static/teapot.html"), "/coffee").await);
         }
         uri if uri.starts_with("/calculate") => {
-            let mut user_state = user_state.lock().await;
+            let mut state = state.lock().await;
+            let user_state: &mut crate::server::UserState =
+                match state.user_states.get_mut(&session_id) {
+                    Some(s) => s,
+                    None => {
+                        return response
+                            .code(HttpCode::BadRequest)
+                            .content_type(ContentType::Text)
+                            .body(read_file_to_bytes("static/404.html").await);
+                    }
+                };
+
             let params = parse_query_params(uri);
             if let Some(input) = params.get("input") {
                 info!(target: "request_logger", "GET /calculate?input={} status: 200", input);
                 match input.as_str() {
-                    "%2B" | "%2D" | "%2A" | "%2F" => {
+                    "%2B" | "%2D" | "%2A" | "%2F" | "*" | "/" | "-" | "+" => {
                         println!("Buffer operator");
                         user_state.buffer(String::from(input));
                     }
@@ -129,19 +140,19 @@ async fn handle_get(
                         };
                         match operator {
                             Some(op) => match op.as_str() {
-                                "%2B" => {
+                                "%2B" | "+" => {
                                     let val: f64 = user_state.value + input;
                                     user_state.value = val;
                                 }
-                                "%2D" => {
+                                "%2D" | "-" => {
                                     let val: f64 = user_state.value - input;
                                     user_state.value = val;
                                 }
-                                "%2A" => {
+                                "%2A" | "*" => {
                                     let val: f64 = user_state.value * input;
                                     user_state.value = val;
                                 }
-                                "%2F" => {
+                                "%2F" | "/" => {
                                     let val: f64 = user_state.value / input;
                                     user_state.value = val;
                                 }
