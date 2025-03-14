@@ -8,7 +8,6 @@
 use crate::response::{MyDefault, Response};
 use crate::server::SharedState;
 use crate::{ContentType, HttpCode, HttpMethod, Request};
-use colored::Colorize;
 use log::{error, info};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -218,121 +217,13 @@ fn parse_query_params(uri: &str) -> HashMap<String, String> {
 ///
 /// # Returns
 /// A `Response` object with the appropriate content and status code.
-async fn handle_post(request: Request, state: Arc<Mutex<SharedState>>) -> Response {
-    let mut response = Response::default()
+async fn handle_post(request: Request, _state: Arc<Mutex<SharedState>>) -> Response {
+    let response = Response::default()
         .await
         .compression(request.is_compression_supported())
         .body(read_file_to_bytes("static/index.html").await)
         .content_type(ContentType::Text);
 
-    if request.uri == "/signup" {
-        // parse the JSON into a hashmap
-        info!("POST /signup from");
-        let user: HashMap<String, String> = match serde_json::from_str(&request.body) {
-            Ok(u) => u,
-            Err(_) => {
-                error!("Failed to parse JSON in request from");
-                println!(
-                    "{} {} {} {}",
-                    ">>".red().bold(),
-                    "Invalid JSON for".red(),
-                    request.method.to_string().magenta(),
-                    request.uri.cyan()
-                );
-                return response
-                    .body(String::from("Invalid JSON.").into())
-                    .code(HttpCode::BadRequest);
-            }
-        };
-
-        // insert the new user into the file
-        let session_id: Uuid = match state
-            .lock()
-            .await
-            .add_user(user["username"].clone(), user["password"].clone())
-            .await
-        {
-            Ok(s) => s,
-            Err(_) => {
-                error!(target: "error_logger","Failed to insert user into the database");
-
-                println!(
-                    "{} {} {} {}",
-                    ">>".red().bold(),
-                    "Error while creating new user ".red(),
-                    request.method.to_string().magenta(),
-                    request.uri.cyan()
-                );
-
-                return response
-                    .body(String::from("Problem occured when attempting to add new user.").into())
-                    .code(HttpCode::InternalServerError);
-            }
-        };
-
-        response.add_header(
-            String::from("Set-Cookie"),
-            format!("session={}; HttpOnly", session_id),
-        );
-
-        return response
-            .body(String::from("New user successfully created!").into())
-            .code(HttpCode::Ok);
-    } else if request.uri == "/login" {
-        info!("POST /login from ");
-        let user: HashMap<String, String> = match serde_json::from_str(&request.body) {
-            Ok(u) => u,
-            Err(_) => {
-                error!("Failed to parse JSON");
-                info!("POST /login status 404");
-                println!(
-                    "{} {} {} {}",
-                    ">>".red().bold(),
-                    "Invaid JSON for".red(),
-                    request.method.to_string().magenta(),
-                    request.uri.cyan()
-                );
-                return response
-                    .body(String::from("Invalid JSON.").into())
-                    .code(HttpCode::BadRequest)
-                    .content_type(ContentType::Text);
-            }
-        };
-
-        let input_username: &str = &user["username"];
-
-        let session_id: Uuid = match state
-            .lock()
-            .await
-            .find_user(input_username.to_string())
-            .await
-        {
-            Ok(s) => s,
-            Err(_) => {
-                error!(target:"error_logger","Failed to find the user");
-                println!(
-                    "{} {} {} {}",
-                    ">>".red().bold(),
-                    "User not found for".red(),
-                    request.method.to_string().magenta(),
-                    request.uri.cyan()
-                );
-                return response
-                    .body(String::from("No user exists with the provided details.").into())
-                    .code(HttpCode::BadRequest)
-                    .content_type(ContentType::Text);
-            }
-        };
-
-        response.add_header(
-            String::from("Set-Cookie"),
-            format!("session={}; HttpOnly", session_id),
-        );
-
-        return response
-            .body(String::from("Authentification successful!").into())
-            .code(HttpCode::Ok);
-    }
     error!("Failed to parse invalid POST request");
     response
         .body(String::from("Invalid post URI.").into())
@@ -383,54 +274,11 @@ async fn handle_patch(request: Request) -> Response {
 /// # Returns
 /// A `Response` object with the appropriate content and status code.
 
-async fn handle_delete(request: Request, state: Arc<Mutex<SharedState>>) -> Response {
+async fn handle_delete(request: Request, _state: Arc<Mutex<SharedState>>) -> Response {
     info!(target: "request_logger","Delete {} status 405", request.uri);
     Response::default()
         .await
         .compression(request.is_compression_supported())
         .body(read_file_to_bytes("static/index.html").await)
         .code(HttpCode::MethodNotAllowed)
-}
-
-#[cfg(test)]
-mod tests {
-
-    /*#[tokio::test]
-    async fn test_signup() {
-        let request_body = json!({
-            "username": "hayley",
-            "password": "password"
-        })
-        .to_string();
-
-        let request = Request {
-            request_id: 0,
-            client_ip:
-            headers: Vec::new(),
-            body: request_body,
-            method: HttpMethod::POST,
-            uri: "/signup".to_string(),
-        };
-        let logger: Arc<Mutex<Logger>> = Arc::new(Mutex::new(Logger::new("server.log")));
-        let response: Response = handle_post(request).await;
-        assert_eq!(response.code, HttpCode::Ok);
-    }*/
-    /*#[tokio::test]
-    async fn test_login() {
-        let request_body = json!({
-            "username": "hayley",
-            "password": "password"
-        })
-        .to_string();
-
-        let request = Request {
-            headers: Vec::new(),
-            body: request_body,
-            method: HttpMethod::POST,
-            uri: "/login".to_string(),
-        };
-        let logger: Arc<Mutex<Logger>> = Arc::new(Mutex::new(Logger::new("server.log")));
-        let response: Response = handle_post(request, logger).await;
-        assert_eq!(response.code, HttpCode::Ok);
-    }*/
 }

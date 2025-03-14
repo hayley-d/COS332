@@ -4,13 +4,9 @@
 use crate::redis_connection::{get_cached_content, read_and_cache_page, set_up_redis};
 use crate::response::Response;
 use crate::socket::connection::{get_listener, load_tls_config};
-use crate::{handle_response, Clock, ErrorType, Request};
-use argon2::password_hash::SaltString;
-use argon2::{Argon2, PasswordHasher};
+use crate::{handle_response, Clock, Request};
 use colored::Colorize;
-use dotenv::dotenv;
 use log::{error, info};
-use rand::rngs::OsRng;
 use std::collections::VecDeque;
 use std::env;
 use std::path::Path;
@@ -22,7 +18,6 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Mutex, Notify, Semaphore};
 use tokio::time::timeout;
-use tokio_postgres::{Client, NoTls};
 use tokio_rustls::server::TlsStream;
 use tokio_rustls::TlsAcceptor;
 use uuid::Uuid;
@@ -34,17 +29,15 @@ const DEFAULT_PORT: u16 = 7878;
 pub struct SharedState {
     pub(crate) redis_connection: redis::Connection,
     pub(crate) clock: Clock,
-    pub(crate) client: Client,
     pub(crate) user_states: std::collections::HashMap<Uuid, UserState>,
 }
 
 impl SharedState {
     /// Creates a new `SharedState` instance.
-    pub fn new(redis_connection: redis::Connection, clock: Clock, client: Client) -> Self {
+    pub fn new(redis_connection: redis::Connection, clock: Clock) -> Self {
         SharedState {
             redis_connection,
             clock,
-            client,
             user_states: std::collections::HashMap::new(),
         }
     }
@@ -66,72 +59,6 @@ impl SharedState {
     /// Reads and caches a page in Redis based on the path and route name.
     pub async fn read_and_cache_page(&mut self, path: &Path, route_name: &str) -> Vec<u8> {
         read_and_cache_page(&mut self.redis_connection, path, route_name).await
-    }
-
-    /// Adds a new user to the PostgreSQL database, hashing their password.
-    ///
-    /// # Arguments
-    /// - `username`: The user's username
-    /// - `password`: The user's plain text password.
-    ///
-    /// # Returns
-    /// A `Response` object with either Ok(session_id) or an Err(Box<dyn std::error::Error>)
-    pub async fn add_user(
-        &mut self,
-        username: String,
-        password: String,
-    ) -> Result<Uuid, Box<dyn std::error::Error>> {
-        let hash = Self::hash_password(&password).unwrap();
-        let session_id = Uuid::new_v4();
-
-        let query = self
-            .client
-            .prepare("INSERT INTO users (username, password, session_id) VALUES ($1,$2,$3);")
-            .await?;
-
-        let _ = self
-            .client
-            .execute(&query, &[&username, &hash, &session_id])
-            .await?;
-
-        Ok(session_id)
-    }
-
-    /// Finds an existing user by username and returns their session ID.
-    pub async fn find_user(
-        &mut self,
-        username: String,
-    ) -> Result<Uuid, Box<dyn std::error::Error>> {
-        let query = self
-            .client
-            .prepare("SELECT * FROM users WHERE username = $1")
-            .await?;
-
-        let row = self.client.query_one(&query, &[&username]).await?;
-
-        if row.is_empty() {
-            return Err(Box::new(ErrorType::ReadError(
-                "Failed to find user".to_string(),
-            )));
-        }
-
-        let session_id: Uuid = row.get(4);
-
-        Ok(session_id)
-    }
-
-    /// Hashes a password using the Argon2 algorithm and a random salt.
-    fn hash_password(password: &str) -> Result<String, Box<dyn std::error::Error>> {
-        let salt = SaltString::generate(&mut OsRng);
-        let argon2 = Argon2::default();
-
-        match argon2.hash_password(password.as_bytes(), salt.as_salt()) {
-            Ok(hash) => Ok(hash.to_string()),
-            Err(_) => {
-                error!(target: "error_logger","Failed to create new user");
-                std::process::exit(1);
-            }
-        }
     }
 }
 
@@ -173,44 +100,12 @@ pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
         Err(_) => DEFAULT_PORT,
     };
 
-    match dotenv() {
-        Ok(_) => (),
-        Err(e) => {
-            eprintln!("dotenv error: {:?}", e);
-            std::process::exit(1);
-        }
-    };
-
-    let database_url = match env::var("DATABASE_URL") {
-        Ok(u) => u,
-        Err(e) => {
-            eprintln!("DATABASE_URL must be set in .env file: {:?}", e);
-            std::process::exit(1);
-        }
-    };
-
-    let (client, connection) = match tokio_postgres::connect(&database_url, NoTls).await {
-        Ok((c, con)) => (c, con),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            std::process::exit(1);
-        }
-    };
-
-    tokio::spawn(async move {
-        if let Err(e) = connection.await {
-            eprintln!("Connection error: {}", e);
-            std::process::exit(1);
-        }
-    });
-
     let state: Arc<Mutex<SharedState>> = Arc::new(Mutex::new(SharedState::new(
         match set_up_redis() {
             Ok(c) => c,
             _ => std::process::exit(1),
         },
         Clock::new(),
-        client,
     )));
 
     rustls::crypto::ring::default_provider()
