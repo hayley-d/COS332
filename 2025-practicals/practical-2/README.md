@@ -23,4 +23,12 @@ This project implements a Telnet-based Friend Database Server using Rust. The se
 - **Concurrency:** Uses `Tokio` for handling multiple clients asynchronously.
 - **Timeout Handling:** The Keep-Alive system ensures idle connections are cleaned up.
 
+## Hash Claculations
+```bash
+md5sum practical_2
+```
+
+```bash
+md5sum -c <(echo "7b6fddca50a5ab6477b48b24b239563a practical_2")
+```
 

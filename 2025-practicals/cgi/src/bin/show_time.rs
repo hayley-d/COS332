@@ -26,7 +26,7 @@ fn get_time(offset: i32) -> String {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config: Config = read_config();
     let current_time = get_time(config.timezone);
-    println!("<!DOCTYPE html>");
+     println!("Content-Type: text/html\n");  
     println!("<html lang=\"en\">");
     println!("<head>");
     println!("<title>Current time</title>");

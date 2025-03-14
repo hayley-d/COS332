@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     write_config(&new_config);
 
-    println!("<!DOCTYPE html>");
+    println!("Content-Type: text/html\n");  
     println!("<html lang=\"en\">");
     println!("<head>");
     println!("<meta http-equiv='refresh' content='0;url=show_time.cgi'>");
