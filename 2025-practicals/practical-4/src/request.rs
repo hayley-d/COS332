@@ -267,28 +267,18 @@ impl Request {
 
     fn extract_field_name(header: &str) -> Result<String, String> {
         header
-            .split(";")
-            .find(|s| s.trim().starts_with("name="))
-            .map(|s| {
-                s.trim()
-                    .trim_start_matches("name=")
-                    .trim_matches('"')
-                    .to_string()
+            .split(';')
+            .find_map(|s| {
+                let s = s.trim();
+                if let Some(value) = s.strip_prefix("name=") {
+                    Some(value.trim_matches('"').to_string())
+                } else if let Some(value) = s.strip_prefix("number=") {
+                    Some(value.trim_matches('"').to_string())
+                } else {
+                    None
+                }
             })
-            .ok_or("Missing field name".to_string())
-    }
-
-    fn extract_filename(header: &str) -> Result<String, String> {
-        header
-            .split(";")
-            .find(|s| s.trim().starts_with("filename="))
-            .map(|s| {
-                s.trim()
-                    .trim_start_matches("filename=")
-                    .trim_matches('"')
-                    .to_string()
-            })
-            .ok_or("Missing filename".to_string())
+            .ok_or("Missing field name or number".to_string())
     }
 
     pub fn is_compression_supported(&self) -> bool {
@@ -393,9 +383,6 @@ impl Display for HttpMethod {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use std::collections::HashMap;
-
     #[test]
     fn test_parse_multipart_form_with_text_fields() {
         let boundary = "----WebKitFormBoundary123456";
