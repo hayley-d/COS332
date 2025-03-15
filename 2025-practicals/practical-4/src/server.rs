@@ -61,6 +61,7 @@ impl SharedState {
 /// # Returns
 /// A `Result` object with either and Ok(()) or an Err(Box<dyn std::error::Error>)
 pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
+    // If no port is provided as command line arg then use 7878 as default
     let port: u16 = match std::env::args()
         .nth(1)
         .unwrap_or_else(|| DEFAULT_PORT.to_string())
@@ -74,7 +75,6 @@ pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
     let conn = match rusqlite::Connection::open("friends.db") {
         Ok(c) => c,
         Err(_) => {
-            eprintln!("Failed to create SQLite connection");
             log::error!(target:"error_logger","Failed to create SQLite connection");
             std::process::exit(1);
         }
@@ -94,7 +94,10 @@ pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
     let state: Arc<Mutex<SharedState>> = Arc::new(Mutex::new(SharedState::new(
         match crate::redis_connection::set_up_redis() {
             Ok(c) => c,
-            _ => std::process::exit(1),
+            _ => {
+                log::error!(target:"error_logger","Failed to set up REDIS connection");
+                std::process::exit(1);
+            }
         },
         crate::Clock::new(),
         conn,
@@ -107,6 +110,7 @@ pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
         .install_default()
         .expect("Failed to install rustls crypto provider");
 
+    // Setup logging
     log4rs::init_file("log4rs.yaml", Default::default()).unwrap();
 
     print_server_info(port);
@@ -128,14 +132,18 @@ async fn start_server(
     port: u16,
     state: Arc<Mutex<SharedState>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // Get the TCP listener from connection module
     let listener: TcpListener = crate::socket::connection::get_listener(port)?;
 
+    // Seup up TLS for connection
     let tls_config = crate::socket::connection::load_tls_config().await?;
     let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(tls_config));
 
+    // Set up secure shutdown green thread
     let shutdown: Arc<Notify> = Arc::new(Notify::new());
     let is_shutting_down = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
+    // Semaphore limits concurrent connections to at most 15 (green threads)
     let connections: Arc<Semaphore> = Arc::new(Semaphore::new(15));
 
     let shutdown_signal = shutdown.clone();
@@ -190,6 +198,7 @@ async fn run_server(
             return;
         }
 
+        // Aquire permit from semaphore
         let permit = connections.clone().acquire_owned().await.unwrap();
 
         let result =
@@ -208,8 +217,9 @@ async fn run_server(
         };
 
         let acceptor = acceptor.clone();
-
         let state = state.clone();
+
+        // TLS handshake
         let handle = tokio::spawn(async move {
             if let Ok(tls_stream) = acceptor.accept(stream).await {
                 log::info!(target: "request_logger","TLS handshake successful with {}", address);
@@ -239,96 +249,120 @@ async fn handle_connection(
     address: String,
     state: Arc<Mutex<SharedState>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    loop {
-        let mut buffer = [0; 4096];
+    let mut request_data: Vec<u8> = Vec::new();
+    let mut buffer: [u8; 8192] = [0; 8192];
 
+    loop {
         // Read request from the client
-        let bytes_read = tokio::time::timeout(
+        let bytes_read: usize = match tokio::time::timeout(
             std::time::Duration::from_millis(100),
             stream.read(&mut buffer),
         )
-        .await;
-
-        let bytes_read = match bytes_read {
-            Ok(b) => b?,
-            Err(_) => return Ok(()),
+        .await
+        {
+            Ok(Ok(n)) if n > 0 => n,
+            _ => break,
         };
 
-        if bytes_read == 0 {
+        // Append bytes chunk to request
+        request_data.extend_from_slice(&buffer[..bytes_read]);
+
+        // Check if we've received the full HTTP headers (detecting "\r\n\r\n")
+        if request_data.windows(4).any(|w: &[u8]| w == b"\r\n\r\n") {
+            break;
+        }
+    }
+
+    // Close connection if nothing is recieved
+    if request_data.is_empty() {
+        return Ok(());
+    }
+
+    // Convert request bytes to a UTF-8 string for header parsing
+    let request_text: &str = match std::str::from_utf8(&request_data) {
+        Ok(text) => text,
+        Err(_) => {
+            log::error!(target: "error_logger", "Received invalid UTF-8 request");
             return Ok(());
         }
+    };
 
-        println!("{}", std::str::from_utf8(&buffer[..bytes_read]).unwrap());
+    println!("{}", request_text);
 
-        let request: crate::Request = match crate::Request::new(
-            &buffer[..bytes_read],
-            address.clone(),
-            state.lock().await.increment_clock().await,
-        ) {
-            Ok(r) => r,
+    let request: crate::Request = match crate::Request::new(
+        &request_data[..],
+        address.clone(),
+        state.lock().await.increment_clock().await,
+    ) {
+        Ok(r) => r,
+        Err(_) => {
+            log::error!(target:"error_logger","Failed to parse incomming request");
+            std::process::exit(1);
+        }
+    };
+
+    println!("{}", request);
+
+    // Check if the request contains a "Cookie" header (session management)
+    if let Some(index) = request.headers.iter().position(|r| r.starts_with("Cookie")) {
+        let cookie_value = request
+            .headers
+            .get(index)
+            .unwrap()
+            .split("=")
+            .last()
+            .unwrap();
+
+        let uuid_str = match uuid::Uuid::parse_str(cookie_value) {
+            Ok(uuid) => uuid,
             Err(_) => {
-                println!("Unable to parse in request");
-                log::error!(target:"error_logger","Failed to parse incomming request");
-                std::process::exit(1);
-            }
-        };
-
-        println!("{}", request);
-
-        if let Some(index) = request.headers.iter().position(|r| r.starts_with("Cookie")) {
-            println!("Existing user");
-            let cookie_value = request
-                .headers
-                .get(index)
-                .unwrap()
-                .split("=")
-                .last()
-                .unwrap();
-            let uuid_str = match uuid::Uuid::parse_str(cookie_value) {
-                Ok(uuid) => uuid,
-                Err(_) => {
-                    let response =
-                        b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nBye, World!";
-                    stream.write_all(response).await?;
-                    stream.flush().await?;
-
-                    return Ok(());
-                }
-            };
-
-            // Need to extract the uuid from the cookie header
-            if request.headers.iter().any(|h| h == "Connection: close") {
                 let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nBye, World!";
                 stream.write_all(response).await?;
                 stream.flush().await?;
-
                 return Ok(());
             }
-            let mut response: crate::response::Response =
-                crate::handle_response(request, state.clone(), uuid_str).await;
+        };
 
-            stream.write_all(&response.to_bytes()).await?;
+        // Handle "Connection: close" header
+        if request
+            .headers
+            .iter()
+            .any(|h: &String| h == "Connection: close")
+        {
+            let response: &[u8] = b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nBye, World!";
+            stream.write_all(response).await?;
             stream.flush().await?;
-        } else {
-            let session_id: uuid::Uuid = uuid::Uuid::new_v4();
-            let user_state: UserState = UserState::new();
-            state
-                .lock()
-                .await
-                .user_states
-                .insert(session_id, user_state);
-            let mut response: crate::response::Response =
-                crate::handle_response(request, state.clone(), session_id).await;
-
-            response.add_header(
-                String::from("Set-Cookie"),
-                format!("session_id={session_id}"),
-            );
-
-            stream.write_all(&response.to_bytes()).await?;
-            stream.flush().await?;
+            return Ok(());
         }
+
+        let mut response: crate::response::Response =
+            crate::handle_response(request, state.clone(), uuid_str).await;
+
+        stream.write_all(&response.to_bytes()).await?;
+        stream.flush().await?;
+    } else {
+        let session_id: uuid::Uuid = uuid::Uuid::new_v4();
+        let user_state: UserState = UserState::new();
+
+        state
+            .lock()
+            .await
+            .user_states
+            .insert(session_id, user_state);
+
+        let mut response: crate::response::Response =
+            crate::handle_response(request, state.clone(), session_id).await;
+
+        response.add_header(
+            String::from("Set-Cookie"),
+            format!("session_id={session_id}"),
+        );
+
+        stream.write_all(&response.to_bytes()).await?;
+        stream.flush().await?;
     }
+
+    Ok(())
 }
 
 /// Prints server information on startup.

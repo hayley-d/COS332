@@ -71,12 +71,18 @@ impl Display for ContentType {
 }
 
 pub struct Request {
-    pub request_id: i64,
-    pub client_ip: String,
-    pub headers: Vec<String>,
-    pub body: String,
-    pub method: HttpMethod,
-    pub uri: String,
+    pub(crate) request_id: i64,
+    pub(crate) client_ip: String,
+    pub(crate) headers: Vec<String>,
+    pub(crate) body: Vec<u8>,
+    pub(crate) method: HttpMethod,
+    pub(crate) uri: String,
+    // The image blob data if present
+    pub(crate) image: Option<Vec<u8>>,
+    // The name if present
+    pub(crate) name: Option<String>,
+    // The number if present
+    pub(crate) number: Option<String>,
 }
 
 impl Display for Request {
@@ -96,51 +102,185 @@ impl Request {
     }
 
     pub fn new(buffer: &[u8], client_ip: String, request_id: i64) -> Result<Request, ErrorType> {
-        // unwrap is safe as request has been parsed for any issues before this is called
-        let request = String::from_utf8(buffer.to_vec()).unwrap();
+        if let Some(body_start) = buffer.windows(4).position(|w| w == b"\r\n\r\n") {
+            // Split the buffer into two parts
+            let header_part: Vec<u8> = buffer[..body_start].to_vec();
+            let body: Vec<u8> = buffer[body_start + 4..].to_vec();
 
-        // split the request by line
-        let request: Vec<&str> = request.lines().collect();
+            let request = String::from_utf8_lossy(&header_part);
+            let request: Vec<&str> = request.lines().collect();
 
-        if request.len() < 3 {
-            error!(target: "error_logger","Recieved invalid request");
-            return Err(ErrorType::ConnectionError(String::from("Invalid request")));
+            if request.len() < 3 {
+                error!(target: "error_logger","Recieved invalid request");
+                return Err(ErrorType::ConnectionError(String::from("Invalid request")));
+            }
+
+            // Get the method from the reqest line
+            let method: HttpMethod =
+                HttpMethod::new(request[0].split_whitespace().collect::<Vec<&str>>()[0]);
+
+            // Get the URI from the request line
+            let mut uri: String =
+                request[0].split_whitespace().collect::<Vec<&str>>()[1].to_string();
+            if uri == "/favicon.ico" {
+                uri = "/".to_string();
+            }
+
+            // Parse the headers
+            let headers: Vec<String> = request[1..]
+                .iter()
+                .map(|line| line.to_string())
+                .collect::<Vec<String>>()[..]
+                .to_vec();
+
+            if let Some(boundary) = Request::extract_boundary(&headers) {
+                println!("Extracted boundary: {}", boundary);
+                let (image, name, number) = match Request::parse_multipart_form(&body, &boundary) {
+                    Ok((i, name, num)) => (i, name, num),
+                    Err(_) => {
+                        log::error!(target:"error_logger","Failed to parse form data");
+                        return Err(ErrorType::BadRequest(
+                            "Failed to parse form data".to_string(),
+                        ));
+                    }
+                };
+                Ok(Request {
+                    request_id,
+                    client_ip,
+                    headers,
+                    body,
+                    method,
+                    uri,
+                    image,
+                    name,
+                    number,
+                })
+            } else {
+                log::info!(target:"request_logger","Request does not contain multipart form data");
+                Ok(Request {
+                    request_id,
+                    client_ip,
+                    headers,
+                    body,
+                    method,
+                    uri,
+                    image: None,
+                    name: None,
+                    number: None,
+                })
+            }
+        } else {
+            Err(ErrorType::ConnectionError(
+                "Error splitting request".to_string(),
+            ))
         }
+    }
 
-        // get the http method from the first line
-        let method: HttpMethod =
-            HttpMethod::new(request[0].split_whitespace().collect::<Vec<&str>>()[0]);
-
-        // get the uri from the first line
-        let mut uri: String = request[0].split_whitespace().collect::<Vec<&str>>()[1].to_string();
-        if uri == "/favicon.ico" {
-            uri = "/".to_string();
+    // Extract the boundry from the Content-Type header
+    fn extract_boundary(headers: &[String]) -> Option<String> {
+        for header in headers {
+            if header
+                .to_lowercase()
+                .starts_with("content-type: multipart/form-data;")
+            {
+                return header
+                    .split("boundary=")
+                    .nth(1)
+                    .map(|b| b.trim().to_string());
+            }
         }
+        None
+    }
 
-        // headers are the rest of the
-        let mut headers: Vec<String> = Vec::with_capacity(request.len() - 1);
-        let mut body: String = String::new();
-        let mut flag = false;
-        for line in &request[1..] {
-            if line.is_empty() {
-                flag = true;
+    pub fn parse_multipart_form(
+        body: &[u8],
+        boundary: &str,
+    ) -> Result<(Option<Vec<u8>>, Option<String>, Option<String>), ErrorType> {
+        let boundary = format!("--{}", boundary);
+        let parts: Vec<&[u8]> = body
+            .split(|b| {
+                body.windows(boundary.len())
+                    .any(|w| w == boundary.as_bytes())
+            })
+            .collect();
+
+        let mut name: Option<String> = None;
+        let mut number: Option<String> = None;
+        let mut image: Option<Vec<u8>> = None;
+        let mut fields: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+        for part in parts {
+            if part.is_empty() || part.starts_with(b"--") {
                 continue;
             }
-            if flag {
-                body.push_str(line);
-            } else {
-                headers.push(line.to_string());
+            let part_str = String::from_utf8_lossy(part);
+            let mut lines = part_str.lines();
+
+            if let Some(content_disposition) = lines.next() {
+                if content_disposition.contains("form-data") {
+                    let name = match Request::extract_field_name(content_disposition) {
+                        Ok(name) => name,
+                        _ => {
+                            log::error!(target:"error_logger","Failed to extract field name");
+                            return Err(ErrorType::BadRequest(
+                                "Failed to extract field name".to_string(),
+                            ));
+                        }
+                    };
+
+                    if content_disposition.contains("filename=") {
+                        let filename = match Request::extract_filename(content_disposition) {
+                            Ok(name) => name,
+                            _ => {
+                                log::error!(target:"error_logger","Failed to extract field name");
+                                return Err(ErrorType::BadRequest(
+                                    "Failed to extract field name".to_string(),
+                                ));
+                            }
+                        };
+                        let content_type = lines.next().unwrap_or("").trim();
+
+                        let file_content_start = part_str
+                            .find("\r\n\r\n")
+                            .map(|i| i + 4)
+                            .unwrap_or(part.len());
+
+                        let file = Some(part[file_content_start..].to_vec());
+                    } else {
+                        let value = lines.collect::<Vec<&str>>().join("\n");
+                        fields.insert(name, value);
+                    }
+                }
             }
         }
 
-        Ok(Request {
-            request_id,
-            client_ip,
-            headers,
-            body,
-            method,
-            uri,
-        })
+        Ok((image, name, number))
+    }
+
+    fn extract_field_name(header: &str) -> Result<String, String> {
+        header
+            .split(";")
+            .find(|s| s.trim().starts_with("name="))
+            .map(|s| {
+                s.trim()
+                    .trim_start_matches("name=")
+                    .trim_matches('"')
+                    .to_string()
+            })
+            .ok_or("Missing field name".to_string())
+    }
+
+    fn extract_filename(header: &str) -> Result<String, String> {
+        header
+            .split(";")
+            .find(|s| s.trim().starts_with("filename="))
+            .map(|s| {
+                s.trim()
+                    .trim_start_matches("filename=")
+                    .trim_matches('"')
+                    .to_string()
+            })
+            .ok_or("Missing filename".to_string())
     }
 
     pub fn is_compression_supported(&self) -> bool {
@@ -205,49 +345,6 @@ impl Display for HttpCode {
         }
     }
 }
-
-/*impl PartialEq for HttpCode {
-    fn eq(&self, other: &Self) -> bool {
-        match self {
-            HttpCode::Ok => match other {
-                HttpCode::Ok => true,
-                _ => false,
-            },
-            HttpCode::Created => match other {
-                HttpCode::Created => true,
-                _ => false,
-            },
-            HttpCode::BadRequest => match other {
-                HttpCode::BadRequest => true,
-                _ => false,
-            },
-            HttpCode::Unauthorized => match other {
-                HttpCode::Unauthorized => true,
-                _ => false,
-            },
-            HttpCode::NotFound => match other {
-                HttpCode::NotFound => true,
-                _ => false,
-            },
-            HttpCode::MethodNotAllowed => match other {
-                HttpCode::MethodNotAllowed => true,
-                _ => false,
-            },
-            HttpCode::RequestTimeout => match other {
-                HttpCode::RequestTimeout => true,
-                _ => false,
-            },
-            HttpCode::Teapot => match other {
-                HttpCode::Teapot => true,
-                _ => false,
-            },
-            HttpCode::InternalServerError => match other {
-                HttpCode::InternalServerError => true,
-                _ => false,
-            },
-        }
-    }
-}*/
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum HttpMethod {
