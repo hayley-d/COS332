@@ -21,17 +21,11 @@ pub struct SharedState {
 
 impl SharedState {
     /// Creates a new `SharedState` instance with the appropriate connections and initializations.
-    pub fn new(redis_connection: redis::Connection, clock: crate::Clock, db_path: &str) -> Self {
-        // Set up SQLite conneciton
-        let conn = match rusqlite::Connection::open(db_path) {
-            Ok(c) => c,
-            Err(_) => {
-                eprintln!("Failed to create SQLite connection");
-                log::error!(target:"error_logger","Failed to create SQLite connection");
-                std::process::exit(1);
-            }
-        };
-
+    pub fn new(
+        redis_connection: redis::Connection,
+        clock: crate::Clock,
+        conn: rusqlite::Connection,
+    ) -> Self {
         SharedState {
             redis_connection,
             conn,
@@ -76,12 +70,34 @@ pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
         Err(_) => DEFAULT_PORT,
     };
 
+    // Open/Create SQLite database
+    let conn = match rusqlite::Connection::open("friends.db") {
+        Ok(c) => c,
+        Err(_) => {
+            eprintln!("Failed to create SQLite connection");
+            log::error!(target:"error_logger","Failed to create SQLite connection");
+            std::process::exit(1);
+        }
+    };
+
+    // Create the `friends` table if it doesn't exist already
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS friends (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            number TEXT NOT NULL,
+            image BLOB
+        )",
+        [],
+    )?;
+
     let state: Arc<Mutex<SharedState>> = Arc::new(Mutex::new(SharedState::new(
         match crate::redis_connection::set_up_redis() {
             Ok(c) => c,
             _ => std::process::exit(1),
         },
         crate::Clock::new(),
+        conn,
     )));
 
     println!("{}{}", ">> ".red().bold(), "Redis working: ".cyan(),);
