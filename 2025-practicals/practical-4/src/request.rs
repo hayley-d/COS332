@@ -204,11 +204,11 @@ impl Request {
             })
             .collect();
 
-        let mut name: Option<String> = None;
-        let mut number: Option<String> = None;
         let mut image: Option<Vec<u8>> = None;
+
         let mut fields: std::collections::HashMap<String, String> =
             std::collections::HashMap::new();
+
         for part in parts {
             if part.is_empty() || part.starts_with(b"--") {
                 continue;
@@ -229,23 +229,12 @@ impl Request {
                     };
 
                     if content_disposition.contains("filename=") {
-                        let filename = match Request::extract_filename(content_disposition) {
-                            Ok(name) => name,
-                            _ => {
-                                log::error!(target:"error_logger","Failed to extract field name");
-                                return Err(ErrorType::BadRequest(
-                                    "Failed to extract field name".to_string(),
-                                ));
-                            }
-                        };
-                        let content_type = lines.next().unwrap_or("").trim();
-
                         let file_content_start = part_str
                             .find("\r\n\r\n")
                             .map(|i| i + 4)
                             .unwrap_or(part.len());
 
-                        let file = Some(part[file_content_start..].to_vec());
+                        image = Some(part[file_content_start..].to_vec());
                     } else {
                         let value = lines.collect::<Vec<&str>>().join("\n");
                         fields.insert(name, value);
@@ -254,7 +243,26 @@ impl Request {
             }
         }
 
-        Ok((image, name, number))
+        let name: String = match fields.get("name") {
+            Some(name) => name.to_string(),
+            None => {
+                log::error!(target:"error_logger","Request missing name field");
+                return Err(ErrorType::BadRequest(
+                    "Request missing name field".to_string(),
+                ));
+            }
+        };
+        let number: String = match fields.get("number") {
+            Some(num) => num.to_string(),
+            None => {
+                log::error!(target:"error_logger","Request missing number field");
+                return Err(ErrorType::BadRequest(
+                    "Request missing number field".to_string(),
+                ));
+            }
+        };
+
+        Ok((image, Some(name), Some(number)))
     }
 
     fn extract_field_name(header: &str) -> Result<String, String> {
@@ -380,5 +388,77 @@ impl Display for HttpMethod {
             HttpMethod::PATCH => write!(f, "PATCH"),
             HttpMethod::DELETE => write!(f, "DELETE"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_parse_multipart_form_with_text_fields() {
+        let boundary = "----WebKitFormBoundary123456";
+        let body = format!(
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\nAlice\r\n\
+            --{boundary}\r\nContent-Disposition: form-data; name=\"number\"\r\n\r\n1234567890\r\n\
+            --{boundary}--\r\n"
+        );
+
+        let (image, name, number) =
+            crate::Request::parse_multipart_form(body.as_bytes(), boundary).unwrap();
+
+        assert_eq!(name, Some(&"Alice".to_string()).cloned());
+        assert!(name.is_some());
+        assert_eq!(number, Some(&"1234567890".to_string()).cloned());
+        assert!(number.is_some());
+        assert!(image.is_none());
+    }
+
+    #[test]
+    fn test_parse_multipart_form_with_file_upload() {
+        let boundary = "----WebKitFormBoundary123456";
+        let file_content = "Hello, this is a test file.";
+        let body = format!(
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\nAlice\r\n\
+            --{boundary}\r\nContent-Disposition: form-data; name=\"number\"\r\n\r\n0674152597\r\n\
+            --{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"test.txt\"\r\nContent-Type: text/plain\r\n\r\n{file_content}\r\n\
+            --{boundary}--\r\n"
+        );
+
+        let (image, name, number) =
+            crate::Request::parse_multipart_form(body.as_bytes(), boundary).unwrap();
+
+        assert_eq!(name, Some(&"Alice".to_string()).cloned());
+        assert_eq!(number, Some(&"0674152597".to_string()).cloned());
+        assert!(image.is_some());
+        assert_eq!(String::from_utf8_lossy(&image.unwrap()), file_content);
+    }
+
+    #[test]
+    fn test_parse_multipart_form_with_missing_fields() {
+        let boundary = "----WebKitFormBoundary123456";
+        let body = format!(
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\nAlice\r\n\
+            --{boundary}\r\nContent-Disposition: form-data; name=\"number\"\r\n\r\n12345\r\n\
+            --{boundary}--\r\n"
+        );
+
+        let (image, name, number) =
+            crate::Request::parse_multipart_form(body.as_bytes(), boundary).unwrap();
+
+        assert_eq!(name, Some(&"Alice".to_string()).cloned());
+        assert!(number.is_none());
+        assert!(image.is_none());
+    }
+
+    #[test]
+    fn test_parse_multipart_form_with_empty_body() {
+        let boundary = "----WebKitFormBoundary123456";
+        let body = "";
+
+        let result = crate::Request::parse_multipart_form(body.as_bytes(), boundary);
+
+        assert!(result.is_err());
     }
 }
