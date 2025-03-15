@@ -76,3 +76,19 @@
 2025-03-01 16:31:53.048 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-3/src/server.rs:326 - TLS handshake failed with 127.0.0.1:48106
 2025-03-01 16:31:54.649 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-3/src/server.rs:326 - TLS handshake failed with 127.0.0.1:48122
 2025-03-01 16:31:56.120 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-3/src/server.rs:326 - TLS handshake failed with 127.0.0.1:48142
+2025-03-14 18:49:40.611 [ERROR] main /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/socket.rs:79 - Cannot open certificate file
+2025-03-14 18:57:50.912 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/server.rs:221 - TLS handshake failed with 127.0.0.1:47492
+2025-03-14 18:57:52.047 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/server.rs:221 - TLS handshake failed with 127.0.0.1:47496
+2025-03-14 18:57:57.112 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/server.rs:221 - TLS handshake failed with 127.0.0.1:57568
+2025-03-14 18:58:10.225 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/server.rs:221 - TLS handshake failed with 127.0.0.1:40452
+2025-03-14 18:58:14.136 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/server.rs:221 - TLS handshake failed with 127.0.0.1:40462
+2025-03-14 18:58:14.372 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/server.rs:221 - TLS handshake failed with 127.0.0.1:40480
+2025-03-14 18:58:19.581 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/server.rs:221 - TLS handshake failed with 127.0.0.1:41234
+2025-03-14 18:58:19.741 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/server.rs:221 - TLS handshake failed with 127.0.0.1:41258
+2025-03-14 18:58:21.853 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/server.rs:221 - TLS handshake failed with 127.0.0.1:41282
+2025-03-14 18:58:22.776 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/server.rs:221 - TLS handshake failed with 127.0.0.1:41290
+2025-03-14 18:58:23.978 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/server.rs:221 - TLS handshake failed with 127.0.0.1:41306
+2025-03-14 18:58:25.605 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/server.rs:221 - TLS handshake failed with 127.0.0.1:36912
+2025-03-14 18:58:26.915 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/server.rs:221 - TLS handshake failed with 127.0.0.1:36930
+2025-03-14 18:58:28.693 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/server.rs:221 - TLS handshake failed with 127.0.0.1:36958
+2025-03-14 18:58:29.436 [ERROR] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/server.rs:221 - TLS handshake failed with 127.0.0.1:36974

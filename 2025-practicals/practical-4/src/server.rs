@@ -1,31 +1,12 @@
 //! A Secure, multi-threaded HTTP/1.1 server implementation using TLS for secure communication.
 //! This server demonstrates concurrency management, secure password storage and itergration with
 //! external services like PostgreSQL and Redis.
-use crate::redis_connection::{get_cached_content, read_and_cache_page, set_up_redis};
-use crate::response::Response;
-use crate::socket::connection::{get_listener, load_tls_config};
-use crate::{handle_response, Clock, ErrorType, Request};
-use argon2::password_hash::SaltString;
-use argon2::{Argon2, PasswordHasher};
 use colored::Colorize;
-use dotenv::dotenv;
-use log::{error, info};
-use rand::rngs::OsRng;
-use std::collections::VecDeque;
-use std::env;
 use std::path::Path;
-use std::str::from_utf8;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Mutex, Notify, Semaphore};
-use tokio::time::timeout;
-use tokio_postgres::{Client, NoTls};
-use tokio_rustls::server::TlsStream;
-use tokio_rustls::TlsAcceptor;
-use uuid::Uuid;
 
 /// The default port used by the server if none is specified.
 const DEFAULT_PORT: u16 = 7878;
@@ -33,23 +14,34 @@ const DEFAULT_PORT: u16 = 7878;
 /// Shared state structure holding connecions to Redis, PostgreSQL and a logical clock.
 pub struct SharedState {
     pub(crate) redis_connection: redis::Connection,
-    pub(crate) clock: Clock,
-    pub(crate) client: Client,
-    pub(crate) user_states: std::collections::HashMap<Uuid, UserState>,
+    pub(crate) conn: rusqlite::Connection,
+    pub(crate) clock: crate::Clock,
+    pub(crate) user_states: std::collections::HashMap<uuid::Uuid, UserState>,
 }
 
 impl SharedState {
-    /// Creates a new `SharedState` instance.
-    pub fn new(redis_connection: redis::Connection, clock: Clock, client: Client) -> Self {
+    /// Creates a new `SharedState` instance with the appropriate connections and initializations.
+    pub fn new(redis_connection: redis::Connection, clock: crate::Clock, db_path: &str) -> Self {
+        // Set up SQLite conneciton
+        let conn = match rusqlite::Connection::open(db_path) {
+            Ok(c) => c,
+            Err(_) => {
+                eprintln!("Failed to create SQLite connection");
+                log::error!(target:"error_logger","Failed to create SQLite connection");
+                std::process::exit(1);
+            }
+        };
+
         SharedState {
             redis_connection,
+            conn,
             clock,
-            client,
             user_states: std::collections::HashMap::new(),
         }
     }
 
-    pub fn insert_user(&mut self, session_id: Uuid) {
+    // Insert a new user session for session management
+    pub fn insert_user(&mut self, session_id: uuid::Uuid) {
         self.user_states.insert(session_id, UserState::new());
     }
 
@@ -60,100 +52,13 @@ impl SharedState {
 
     /// Retrieves the cached content for a given route name from Redis.
     pub async fn get_cached_content(&mut self, route_name: &str) -> Option<Vec<u8>> {
-        get_cached_content(&mut self.redis_connection, route_name).await
+        crate::redis_connection::get_cached_content(&mut self.redis_connection, route_name).await
     }
 
     /// Reads and caches a page in Redis based on the path and route name.
     pub async fn read_and_cache_page(&mut self, path: &Path, route_name: &str) -> Vec<u8> {
-        read_and_cache_page(&mut self.redis_connection, path, route_name).await
-    }
-
-    /// Adds a new user to the PostgreSQL database, hashing their password.
-    ///
-    /// # Arguments
-    /// - `username`: The user's username
-    /// - `password`: The user's plain text password.
-    ///
-    /// # Returns
-    /// A `Response` object with either Ok(session_id) or an Err(Box<dyn std::error::Error>)
-    pub async fn add_user(
-        &mut self,
-        username: String,
-        password: String,
-    ) -> Result<Uuid, Box<dyn std::error::Error>> {
-        let hash = Self::hash_password(&password).unwrap();
-        let session_id = Uuid::new_v4();
-
-        let query = self
-            .client
-            .prepare("INSERT INTO users (username, password, session_id) VALUES ($1,$2,$3);")
-            .await?;
-
-        let _ = self
-            .client
-            .execute(&query, &[&username, &hash, &session_id])
-            .await?;
-
-        Ok(session_id)
-    }
-
-    /// Finds an existing user by username and returns their session ID.
-    pub async fn find_user(
-        &mut self,
-        username: String,
-    ) -> Result<Uuid, Box<dyn std::error::Error>> {
-        let query = self
-            .client
-            .prepare("SELECT * FROM users WHERE username = $1")
-            .await?;
-
-        let row = self.client.query_one(&query, &[&username]).await?;
-
-        if row.is_empty() {
-            return Err(Box::new(ErrorType::ReadError(
-                "Failed to find user".to_string(),
-            )));
-        }
-
-        let session_id: Uuid = row.get(4);
-
-        Ok(session_id)
-    }
-
-    /// Hashes a password using the Argon2 algorithm and a random salt.
-    fn hash_password(password: &str) -> Result<String, Box<dyn std::error::Error>> {
-        let salt = SaltString::generate(&mut OsRng);
-        let argon2 = Argon2::default();
-
-        match argon2.hash_password(password.as_bytes(), salt.as_salt()) {
-            Ok(hash) => Ok(hash.to_string()),
-            Err(_) => {
-                error!(target: "error_logger","Failed to create new user");
-                std::process::exit(1);
-            }
-        }
-    }
-}
-
-pub struct UserState {
-    pub(crate) value: f64,
-    pub(crate) operator_buffer: VecDeque<String>,
-}
-
-impl UserState {
-    pub fn new() -> UserState {
-        UserState {
-            value: 0.0,
-            operator_buffer: VecDeque::new(),
-        }
-    }
-
-    pub fn buffer(&mut self, operator: String) {
-        self.operator_buffer.push_back(operator)
-    }
-
-    pub fn pop(&mut self) -> Option<String> {
-        self.operator_buffer.pop_front()
+        crate::redis_connection::read_and_cache_page(&mut self.redis_connection, path, route_name)
+            .await
     }
 }
 
@@ -162,9 +67,7 @@ impl UserState {
 /// # Returns
 /// A `Result` object with either and Ok(()) or an Err(Box<dyn std::error::Error>)
 pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
-    println!("{}{}", ">> ".red().bold(), "Redis working: ".cyan(),);
-
-    let port: u16 = match env::args()
+    let port: u16 = match std::env::args()
         .nth(1)
         .unwrap_or_else(|| DEFAULT_PORT.to_string())
         .parse()
@@ -173,46 +76,17 @@ pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
         Err(_) => DEFAULT_PORT,
     };
 
-    match dotenv() {
-        Ok(_) => (),
-        Err(e) => {
-            eprintln!("dotenv error: {:?}", e);
-            std::process::exit(1);
-        }
-    };
-
-    let database_url = match env::var("DATABASE_URL") {
-        Ok(u) => u,
-        Err(e) => {
-            eprintln!("DATABASE_URL must be set in .env file: {:?}", e);
-            std::process::exit(1);
-        }
-    };
-
-    let (client, connection) = match tokio_postgres::connect(&database_url, NoTls).await {
-        Ok((c, con)) => (c, con),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            std::process::exit(1);
-        }
-    };
-
-    tokio::spawn(async move {
-        if let Err(e) = connection.await {
-            eprintln!("Connection error: {}", e);
-            std::process::exit(1);
-        }
-    });
-
     let state: Arc<Mutex<SharedState>> = Arc::new(Mutex::new(SharedState::new(
-        match set_up_redis() {
+        match crate::redis_connection::set_up_redis() {
             Ok(c) => c,
             _ => std::process::exit(1),
         },
-        Clock::new(),
-        client,
+        crate::Clock::new(),
     )));
 
+    println!("{}{}", ">> ".red().bold(), "Redis working: ".cyan(),);
+
+    // For TLS functionality
     rustls::crypto::ring::default_provider()
         .install_default()
         .expect("Failed to install rustls crypto provider");
@@ -221,7 +95,7 @@ pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
 
     print_server_info(port);
 
-    info!(target: "request_logger","Server Started");
+    log::info!(target: "request_logger","Server Started");
     let _ = start_server(port, state).await;
     Ok(())
 }
@@ -238,13 +112,13 @@ async fn start_server(
     port: u16,
     state: Arc<Mutex<SharedState>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let listener: TcpListener = get_listener(port)?;
+    let listener: TcpListener = crate::socket::connection::get_listener(port)?;
 
-    let tls_config = load_tls_config().await?;
-    let acceptor = TlsAcceptor::from(Arc::new(tls_config));
+    let tls_config = crate::socket::connection::load_tls_config().await?;
+    let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(tls_config));
 
     let shutdown: Arc<Notify> = Arc::new(Notify::new());
-    let is_shutting_down = Arc::new(AtomicBool::new(false));
+    let is_shutting_down = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
     let connections: Arc<Semaphore> = Arc::new(Semaphore::new(15));
 
@@ -254,11 +128,12 @@ async fn start_server(
     tokio::spawn(async move {
         if tokio::signal::ctrl_c().await.is_err() {
             eprintln!("Failed to listen for shutdown signal");
+            log::error!(target: "error_logger", "Failed to listen for shutdonw signal");
             std::process::exit(1);
         } else {
             println!("Recieved shutdown request");
             println!("Waiting for tasks to finish");
-            shutdown_flag.store(true, Ordering::SeqCst);
+            shutdown_flag.store(true, std::sync::atomic::Ordering::SeqCst);
             shutdown_signal.notify_one();
             println!("Tasks complete, server shutdown started");
             std::process::exit(0);
@@ -269,7 +144,7 @@ async fn start_server(
         _ = run_server(listener,acceptor,connections.clone(),is_shutting_down.clone(),state.clone())=> {
         }
         _ = shutdown.notified() => {
-                info!(target: "request_logger","Server shutdown signal recieved.");
+                log::info!(target: "request_logger","Server shutdown signal recieved.");
                 println!("Server shutdown signal recieved.");
         }
     }
@@ -287,21 +162,22 @@ async fn start_server(
 /// - `state`: A shared, thread-safe state used for managing server data and caching.
 async fn run_server(
     listener: TcpListener,
-    acceptor: TlsAcceptor,
+    acceptor: tokio_rustls::TlsAcceptor,
     connections: Arc<Semaphore>,
-    is_shutdown: Arc<AtomicBool>,
+    is_shutdown: Arc<std::sync::atomic::AtomicBool>,
     state: Arc<Mutex<SharedState>>,
 ) {
     loop {
         let connections = connections.clone();
 
-        if Arc::clone(&is_shutdown).load(Ordering::SeqCst) {
+        if Arc::clone(&is_shutdown).load(std::sync::atomic::Ordering::SeqCst) {
             return;
         }
 
         let permit = connections.clone().acquire_owned().await.unwrap();
 
-        let result = timeout(Duration::from_millis(100), listener.accept()).await;
+        let result =
+            tokio::time::timeout(std::time::Duration::from_millis(100), listener.accept()).await;
 
         let (stream, address) = match result {
             Ok(Ok((s, a))) => (s, a),
@@ -320,10 +196,10 @@ async fn run_server(
         let state = state.clone();
         let handle = tokio::spawn(async move {
             if let Ok(tls_stream) = acceptor.accept(stream).await {
-                info!(target: "request_logger","TLS handshake successful with {}", address);
+                log::info!(target: "request_logger","TLS handshake successful with {}", address);
                 let _ = handle_connection(tls_stream, address.to_string(), state.clone()).await;
             } else {
-                error!(target: "error_logger","TLS handshake failed with {}", address);
+                log::error!(target: "error_logger","TLS handshake failed with {}", address);
             }
 
             drop(permit);
@@ -343,7 +219,7 @@ async fn run_server(
 /// # Returns
 /// A `Result` object with either and Ok(()) or an Err(Box<dyn std::error::Error>)
 async fn handle_connection(
-    mut stream: TlsStream<TcpStream>,
+    mut stream: tokio_rustls::server::TlsStream<TcpStream>,
     address: String,
     state: Arc<Mutex<SharedState>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -351,7 +227,11 @@ async fn handle_connection(
         let mut buffer = [0; 4096];
 
         // Read request from the client
-        let bytes_read = timeout(Duration::from_millis(100), stream.read(&mut buffer)).await;
+        let bytes_read = tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            stream.read(&mut buffer),
+        )
+        .await;
 
         let bytes_read = match bytes_read {
             Ok(b) => b?,
@@ -359,13 +239,12 @@ async fn handle_connection(
         };
 
         if bytes_read == 0 {
-            println!("Client Disconnected");
             return Ok(());
         }
 
-        println!("{}", from_utf8(&buffer[..bytes_read]).unwrap());
+        println!("{}", std::str::from_utf8(&buffer[..bytes_read]).unwrap());
 
-        let request: Request = match Request::new(
+        let request: crate::Request = match crate::Request::new(
             &buffer[..bytes_read],
             address.clone(),
             state.lock().await.increment_clock().await,
@@ -373,6 +252,7 @@ async fn handle_connection(
             Ok(r) => r,
             Err(_) => {
                 println!("Unable to parse in request");
+                log::error!(target:"error_logger","Failed to parse incomming request");
                 std::process::exit(1);
             }
         };
@@ -388,7 +268,7 @@ async fn handle_connection(
                 .split("=")
                 .last()
                 .unwrap();
-            let uuid_str = match Uuid::parse_str(cookie_value) {
+            let uuid_str = match uuid::Uuid::parse_str(cookie_value) {
                 Ok(uuid) => uuid,
                 Err(_) => {
                     let response =
@@ -408,20 +288,21 @@ async fn handle_connection(
 
                 return Ok(());
             }
-            let mut response: Response = handle_response(request, state.clone(), uuid_str).await;
+            let mut response: crate::response::Response =
+                crate::handle_response(request, state.clone(), uuid_str).await;
 
             stream.write_all(&response.to_bytes()).await?;
             stream.flush().await?;
         } else {
-            println!("New user");
-            let session_id: Uuid = Uuid::new_v4();
+            let session_id: uuid::Uuid = uuid::Uuid::new_v4();
             let user_state: UserState = UserState::new();
             state
                 .lock()
                 .await
                 .user_states
                 .insert(session_id, user_state);
-            let mut response: Response = handle_response(request, state.clone(), session_id).await;
+            let mut response: crate::response::Response =
+                crate::handle_response(request, state.clone(), session_id).await;
 
             response.add_header(
                 String::from("Set-Cookie"),
@@ -474,4 +355,26 @@ fn print_server_info(port: u16) {
         "Server has launched from http://127.0.0.1:".red().bold(),
         port.to_string().red().bold()
     );
+}
+
+pub struct UserState {
+    pub(crate) value: f64,
+    pub(crate) operator_buffer: std::collections::VecDeque<String>,
+}
+
+impl UserState {
+    pub fn new() -> UserState {
+        UserState {
+            value: 0.0,
+            operator_buffer: std::collections::VecDeque::new(),
+        }
+    }
+
+    pub fn buffer(&mut self, operator: String) {
+        self.operator_buffer.push_back(operator)
+    }
+
+    pub fn pop(&mut self) -> Option<String> {
+        self.operator_buffer.pop_front()
+    }
 }
