@@ -210,6 +210,8 @@ impl Request {
             std::collections::HashMap::new();
 
         for part in parts {
+            let string_part = String::from_utf8(part.to_vec()).unwrap();
+            println!("{string_part}");
             if part.is_empty() || part.starts_with(b"--") {
                 continue;
             }
@@ -387,9 +389,7 @@ mod tests {
     fn test_parse_multipart_form_with_text_fields() {
         let boundary = "----WebKitFormBoundary123456";
         let body = format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\nAlice\r\n\
-            --{boundary}\r\nContent-Disposition: form-data; name=\"number\"\r\n\r\n1234567890\r\n\
-            --{boundary}--\r\n"
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\nAlice\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"number\"\r\n\r\n1234567890\r\n--{boundary}--\r\n"
         );
 
         let (image, name, number) =
@@ -407,10 +407,7 @@ mod tests {
         let boundary = "----WebKitFormBoundary123456";
         let file_content = "Hello, this is a test file.";
         let body = format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\nAlice\r\n\
-            --{boundary}\r\nContent-Disposition: form-data; name=\"number\"\r\n\r\n0674152597\r\n\
-            --{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"test.txt\"\r\nContent-Type: text/plain\r\n\r\n{file_content}\r\n\
-            --{boundary}--\r\n"
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\nAlice\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"number\"\r\n\r\n0674152597\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"test.txt\"\r\nContent-Type: text/plain\r\n\r\n{file_content}\r\n--{boundary}--\r\n"
         );
 
         let (image, name, number) =
@@ -426,9 +423,7 @@ mod tests {
     fn test_parse_multipart_form_with_missing_fields() {
         let boundary = "----WebKitFormBoundary123456";
         let body = format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\nAlice\r\n\
-            --{boundary}\r\nContent-Disposition: form-data; name=\"number\"\r\n\r\n12345\r\n\
-            --{boundary}--\r\n"
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\nAlice\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"number\"\r\n\r\n12345\r\n--{boundary}--\r\n"
         );
 
         let (image, name, number) =
