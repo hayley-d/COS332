@@ -7,3 +7,5 @@ CREATE TABLE users(
     session_id UUID DEFAULT NULL
 );
 
+
+adding a comment
