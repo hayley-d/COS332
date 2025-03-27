@@ -71,18 +71,12 @@ impl Display for ContentType {
 }
 
 pub struct Request {
-    pub(crate) request_id: i64,
-    pub(crate) client_ip: String,
-    pub(crate) headers: Vec<String>,
-    pub(crate) body: Vec<u8>,
-    pub(crate) method: HttpMethod,
-    pub(crate) uri: String,
-    // The image blob data if present
-    pub(crate) image: Option<Vec<u8>>,
-    // The name if present
-    pub(crate) name: Option<String>,
-    // The number if present
-    pub(crate) number: Option<String>,
+    pub request_id: i64,
+    pub client_ip: String,
+    pub headers: Vec<String>,
+    pub body: String,
+    pub method: HttpMethod,
+    pub uri: String,
 }
 
 impl Display for Request {
@@ -102,185 +96,51 @@ impl Request {
     }
 
     pub fn new(buffer: &[u8], client_ip: String, request_id: i64) -> Result<Request, ErrorType> {
-        if let Some(body_start) = buffer.windows(4).position(|w| w == b"\r\n\r\n") {
-            // Split the buffer into two parts
-            let header_part: Vec<u8> = buffer[..body_start].to_vec();
-            let body: Vec<u8> = buffer[body_start + 4..].to_vec();
+        // unwrap is safe as request has been parsed for any issues before this is called
+        let request = String::from_utf8(buffer.to_vec()).unwrap();
 
-            let request = String::from_utf8_lossy(&header_part);
-            let request: Vec<&str> = request.lines().collect();
+        // split the request by line
+        let request: Vec<&str> = request.lines().collect();
 
-            if request.len() < 3 {
-                error!(target: "error_logger","Recieved invalid request");
-                return Err(ErrorType::ConnectionError(String::from("Invalid request")));
-            }
-
-            // Get the method from the reqest line
-            let method: HttpMethod =
-                HttpMethod::new(request[0].split_whitespace().collect::<Vec<&str>>()[0]);
-
-            // Get the URI from the request line
-            let mut uri: String =
-                request[0].split_whitespace().collect::<Vec<&str>>()[1].to_string();
-            if uri == "/favicon.ico" {
-                uri = "/".to_string();
-            }
-
-            // Parse the headers
-            let headers: Vec<String> = request[1..]
-                .iter()
-                .map(|line| line.to_string())
-                .collect::<Vec<String>>()[..]
-                .to_vec();
-
-            if let Some(boundary) = Request::extract_boundary(&headers) {
-                println!("Extracted boundary: {}", boundary);
-                let (image, name, number) = match Request::parse_multipart_form(&body, &boundary) {
-                    Ok((i, name, num)) => (i, name, num),
-                    Err(_) => {
-                        log::error!(target:"error_logger","Failed to parse form data");
-                        return Err(ErrorType::BadRequest(
-                            "Failed to parse form data".to_string(),
-                        ));
-                    }
-                };
-                Ok(Request {
-                    request_id,
-                    client_ip,
-                    headers,
-                    body,
-                    method,
-                    uri,
-                    image,
-                    name,
-                    number,
-                })
-            } else {
-                log::info!(target:"request_logger","Request does not contain multipart form data");
-                Ok(Request {
-                    request_id,
-                    client_ip,
-                    headers,
-                    body,
-                    method,
-                    uri,
-                    image: None,
-                    name: None,
-                    number: None,
-                })
-            }
-        } else {
-            Err(ErrorType::ConnectionError(
-                "Error splitting request".to_string(),
-            ))
+        if request.len() < 3 {
+            error!(target: "error_logger","Recieved invalid request");
+            return Err(ErrorType::ConnectionError(String::from("Invalid request")));
         }
-    }
 
-    // Extract the boundry from the Content-Type header
-    fn extract_boundary(headers: &[String]) -> Option<String> {
-        for header in headers {
-            if header
-                .to_lowercase()
-                .starts_with("content-type: multipart/form-data;")
-            {
-                return header
-                    .split("boundary=")
-                    .nth(1)
-                    .map(|b| b.trim().to_string());
-            }
+        // get the http method from the first line
+        let method: HttpMethod =
+            HttpMethod::new(request[0].split_whitespace().collect::<Vec<&str>>()[0]);
+
+        // get the uri from the first line
+        let mut uri: String = request[0].split_whitespace().collect::<Vec<&str>>()[1].to_string();
+        if uri == "/favicon.ico" {
+            uri = "/".to_string();
         }
-        None
-    }
 
-    pub fn parse_multipart_form(
-        body: &[u8],
-        boundary: &str,
-    ) -> Result<(Option<Vec<u8>>, Option<String>, Option<String>), ErrorType> {
-        let boundary = format!("--{}", boundary);
-        let parts: Vec<&[u8]> = body
-            .split(|b| {
-                body.windows(boundary.len())
-                    .any(|w| w == boundary.as_bytes())
-            })
-            .collect();
-
-        let mut image: Option<Vec<u8>> = None;
-
-        let mut fields: std::collections::HashMap<String, String> =
-            std::collections::HashMap::new();
-
-        for part in parts {
-            let string_part = String::from_utf8(part.to_vec()).unwrap();
-            println!("{string_part}");
-            if part.is_empty() || part.starts_with(b"--") {
+        // headers are the rest of the
+        let mut headers: Vec<String> = Vec::with_capacity(request.len() - 1);
+        let mut body: String = String::new();
+        let mut flag = false;
+        for line in &request[1..] {
+            if line.is_empty() {
+                flag = true;
                 continue;
             }
-            let part_str = String::from_utf8_lossy(part);
-            let mut lines = part_str.lines();
-
-            if let Some(content_disposition) = lines.next() {
-                if content_disposition.contains("form-data") {
-                    let name = match Request::extract_field_name(content_disposition) {
-                        Ok(name) => name,
-                        _ => {
-                            log::error!(target:"error_logger","Failed to extract field name");
-                            return Err(ErrorType::BadRequest(
-                                "Failed to extract field name".to_string(),
-                            ));
-                        }
-                    };
-
-                    if content_disposition.contains("filename=") {
-                        let file_content_start = part_str
-                            .find("\r\n\r\n")
-                            .map(|i| i + 4)
-                            .unwrap_or(part.len());
-
-                        image = Some(part[file_content_start..].to_vec());
-                    } else {
-                        let value = lines.collect::<Vec<&str>>().join("\n");
-                        fields.insert(name, value);
-                    }
-                }
+            if flag {
+                body.push_str(line);
+            } else {
+                headers.push(line.to_string());
             }
         }
 
-        let name: String = match fields.get("name") {
-            Some(name) => name.to_string(),
-            None => {
-                log::error!(target:"error_logger","Request missing name field");
-                return Err(ErrorType::BadRequest(
-                    "Request missing name field".to_string(),
-                ));
-            }
-        };
-        let number: String = match fields.get("number") {
-            Some(num) => num.to_string(),
-            None => {
-                log::error!(target:"error_logger","Request missing number field");
-                return Err(ErrorType::BadRequest(
-                    "Request missing number field".to_string(),
-                ));
-            }
-        };
-
-        Ok((image, Some(name), Some(number)))
-    }
-
-    fn extract_field_name(header: &str) -> Result<String, String> {
-        header
-            .split(';')
-            .find_map(|s| {
-                let s = s.trim();
-                if let Some(value) = s.strip_prefix("name=") {
-                    Some(value.trim_matches('"').to_string())
-                } else if let Some(value) = s.strip_prefix("number=") {
-                    Some(value.trim_matches('"').to_string())
-                } else {
-                    None
-                }
-            })
-            .ok_or("Missing field name or number".to_string())
+        Ok(Request {
+            request_id,
+            client_ip,
+            headers,
+            body,
+            method,
+            uri,
+        })
     }
 
     pub fn is_compression_supported(&self) -> bool {
@@ -380,67 +240,5 @@ impl Display for HttpMethod {
             HttpMethod::PATCH => write!(f, "PATCH"),
             HttpMethod::DELETE => write!(f, "DELETE"),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_parse_multipart_form_with_text_fields() {
-        let boundary = "----WebKitFormBoundary123456";
-        let body = format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\nAlice\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"number\"\r\n\r\n1234567890\r\n--{boundary}--\r\n"
-        );
-
-        let (image, name, number) =
-            crate::Request::parse_multipart_form(body.as_bytes(), boundary).unwrap();
-
-        assert_eq!(name, Some(&"Alice".to_string()).cloned());
-        assert!(name.is_some());
-        assert_eq!(number, Some(&"1234567890".to_string()).cloned());
-        assert!(number.is_some());
-        assert!(image.is_none());
-    }
-
-    #[test]
-    fn test_parse_multipart_form_with_file_upload() {
-        let boundary = "----WebKitFormBoundary123456";
-        let file_content = "Hello, this is a test file.";
-        let body = format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\nAlice\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"number\"\r\n\r\n0674152597\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"test.txt\"\r\nContent-Type: text/plain\r\n\r\n{file_content}\r\n--{boundary}--\r\n"
-        );
-
-        let (image, name, number) =
-            crate::Request::parse_multipart_form(body.as_bytes(), boundary).unwrap();
-
-        assert_eq!(name, Some(&"Alice".to_string()).cloned());
-        assert_eq!(number, Some(&"0674152597".to_string()).cloned());
-        assert!(image.is_some());
-        assert_eq!(String::from_utf8_lossy(&image.unwrap()), file_content);
-    }
-
-    #[test]
-    fn test_parse_multipart_form_with_missing_fields() {
-        let boundary = "----WebKitFormBoundary123456";
-        let body = format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\nAlice\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"number\"\r\n\r\n12345\r\n--{boundary}--\r\n"
-        );
-
-        let (image, name, number) =
-            crate::Request::parse_multipart_form(body.as_bytes(), boundary).unwrap();
-
-        assert_eq!(name, Some(&"Alice".to_string()).cloned());
-        assert!(number.is_none());
-        assert!(image.is_none());
-    }
-
-    #[test]
-    fn test_parse_multipart_form_with_empty_body() {
-        let boundary = "----WebKitFormBoundary123456";
-        let body = "";
-
-        let result = crate::Request::parse_multipart_form(body.as_bytes(), boundary);
-
-        assert!(result.is_err());
     }
 }

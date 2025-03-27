@@ -199,3 +199,14 @@
 2025-03-14 18:58:28.700 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/api.rs:128 - GET /calculate?input=%2F status: 200
 2025-03-14 18:58:29.442 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/server.rs:218 - TLS handshake successful with 127.0.0.1:36984
 2025-03-14 18:58:29.444 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-3/src/api.rs:128 - GET /calculate?input=2 status: 200
+2025-03-27 17:48:13.601 [INFO] main /home/hayley/Documents/COS332/2025-practicals/practical-4/src/server.rs:117 - Server Started
+2025-03-27 17:48:13.621 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-03-27 17:48:13.622 [INFO] main /home/hayley/Documents/COS332/2025-practicals/practical-4/src/socket.rs:96 - TLS certificate and keys configured
+2025-03-27 17:48:23.678 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-4/src/server.rs:224 - TLS handshake successful with 127.0.0.1:41316
+2025-03-27 17:48:23.679 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-4/src/api.rs:100 - GET / from status 200
+2025-03-27 17:48:23.725 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-4/src/server.rs:224 - TLS handshake successful with 127.0.0.1:41328
+2025-03-27 17:48:23.726 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-4/src/api.rs:100 - GET / from status 200
+2025-03-27 17:48:27.184 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-4/src/server.rs:224 - TLS handshake successful with 127.0.0.1:41350
+2025-03-27 17:48:27.185 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-4/src/api.rs:104 - GET /home status: 200
+2025-03-27 17:48:27.225 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-4/src/server.rs:224 - TLS handshake successful with 127.0.0.1:41378
+2025-03-27 17:48:27.225 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332/2025-practicals/practical-4/src/api.rs:100 - GET / from status 200

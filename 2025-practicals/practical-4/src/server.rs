@@ -54,6 +54,35 @@ impl SharedState {
         crate::redis_connection::read_and_cache_page(&mut self.redis_connection, path, route_name)
             .await
     }
+
+    pub fn add_friend(&mut self, name: &str, number: &str) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "INSERT INTO friends (name, number) VALUES (?1, ?2);",
+            rusqlite::params![name, number],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_friend(&self, name: &str) -> rusqlite::Result<Option<String>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT number FROM friends WHERE name = ?1;")?;
+        let mut rows = stmt.query(rusqlite::params![name])?;
+        if let Some(row) = rows.next()? {
+            let number: String = row.get(0)?;
+            Ok(Some(number))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn delete_friend(&self, name: &str) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "DELETE FROM friends WHERE name = ?1;",
+            rusqlite::params![name],
+        )?;
+        Ok(())
+    }
 }
 
 /// Sets up the server by initializing the connections and configuring logging.
@@ -83,10 +112,9 @@ pub async fn set_up_server() -> Result<(), Box<dyn std::error::Error>> {
     // Create the `friends` table if it doesn't exist already
     conn.execute(
         "CREATE TABLE IF NOT EXISTS friends (
-            id TEXT PRIMARY KEY,
+            id TEXT PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            number TEXT NOT NULL,
-            image BLOB
+            number TEXT NOT NULL
         )",
         [],
     )?;
