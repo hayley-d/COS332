@@ -63,14 +63,18 @@ impl SharedState {
         Ok(())
     }
 
-    pub fn get_friend(&self, name: &str) -> rusqlite::Result<Option<String>> {
+    pub fn get_friend(&self, name: &str) -> rusqlite::Result<Option<crate::api::Friend>> {
         let mut stmt = self
             .conn
             .prepare("SELECT number FROM friends WHERE name = ?1;")?;
         let mut rows = stmt.query(rusqlite::params![name])?;
         if let Some(row) = rows.next()? {
             let number: String = row.get(0)?;
-            Ok(Some(number))
+
+            Ok(Some(crate::api::Friend {
+                name: name.to_string(),
+                number,
+            }))
         } else {
             Ok(None)
         }
@@ -82,6 +86,31 @@ impl SharedState {
             rusqlite::params![name],
         )?;
         Ok(())
+    }
+
+    pub(crate) fn get_all_friends(&self) -> Vec<crate::api::Friend> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT name, number FROM friends")
+            .expect("Failed to prepare");
+
+        let iter = stmt
+            .query_map([], |row| {
+                Ok(crate::api::Friend {
+                    name: row.get(0)?,
+                    number: row.get(1)?,
+                })
+            })
+            .expect("Failed to query");
+
+        let mut friends = Vec::new();
+
+        for friend in iter {
+            if let Ok(f) = friend {
+                friends.push(f);
+            }
+        }
+        friends
     }
 }
 

@@ -17,6 +17,12 @@ use tokio::io::AsyncReadExt;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct Friend {
+    pub(crate) name: String,
+    pub(crate) number: String,
+}
+
 /// Reads the content of a file located at `path` and returns it as a `Vec<u8>`.
 ///
 /// # Arguments
@@ -100,78 +106,22 @@ async fn handle_get(
             info!(target: "request_logger","GET / from status 200");
             response.add_body(get_bytes(state, PathBuf::from(r"static/index.html"), "/").await);
         }
-        "/home" => {
-            info!(target: "request_logger","GET /home status: 200");
-            response.add_body(get_bytes(state, PathBuf::from(r"static/home.html"), "/home").await);
-        }
-        "/coffee" => {
-            info!(target: "request_logger","GET /coffee status: 418");
-            return response
-                .code(HttpCode::Teapot)
-                .body(get_bytes(state, PathBuf::from(r"static/teapot.html"), "/coffee").await);
-        }
-        uri if uri.starts_with("/calculate") => {
-            let mut state = state.lock().await;
-            let user_state: &mut crate::server::UserState =
-                match state.user_states.get_mut(&session_id) {
-                    Some(s) => s,
-                    None => {
-                        return response
-                            .code(HttpCode::BadRequest)
-                            .content_type(ContentType::Text)
-                            .body(read_file_to_bytes("static/404.html").await);
-                    }
-                };
-
-            let params = parse_query_params(uri);
-            if let Some(input) = params.get("input") {
-                info!(target: "request_logger", "GET /calculate?input={} status: 200", input);
-                match input.as_str() {
-                    "%2B" | "%2D" | "%2A" | "%2F" | "*" | "/" | "-" | "+" => {
-                        println!("Buffer operator");
-                        user_state.buffer(String::from(input));
-                    }
-                    _ => {
-                        let operator: Option<String> = user_state.pop();
-                        let input: f64 = match input.parse() {
-                            Ok(v) => v,
-                            Err(_) => 0.0,
-                        };
-                        match operator {
-                            Some(op) => match op.as_str() {
-                                "%2B" | "+" => {
-                                    let val: f64 = user_state.value + input;
-                                    user_state.value = val;
-                                }
-                                "%2D" | "-" => {
-                                    let val: f64 = user_state.value - input;
-                                    user_state.value = val;
-                                }
-                                "%2A" | "*" => {
-                                    let val: f64 = user_state.value * input;
-                                    user_state.value = val;
-                                }
-                                "%2F" | "/" => {
-                                    let val: f64 = user_state.value / input;
-                                    user_state.value = val;
-                                }
-                                _ => {}
-                            },
-                            None => {
-                                user_state.value = input;
-                            }
-                        }
-                    }
+        uri if uri.starts_with("/add") => {
+            match serde_json::from_str::<Friend>(request.body.as_str()) {
+                Ok(friend) => {
+                    let _ = state.lock().await.add_friend(&friend.name, &friend.number);
+                    info!(target: "request_logger","GET {} status: 200", request.uri);
+                    return response.code(HttpCode::Ok).content_type(ContentType::Text);
                 }
-
-                println!("Current value: {}", user_state.value);
-                return response
-                    .code(HttpCode::Ok)
-                    .content_type(ContentType::Text)
-                    .body(user_state.value.to_string().as_bytes().to_vec());
+                Err(_) => {
+                    return response
+                        .code(HttpCode::BadRequest)
+                        .content_type(ContentType::Text)
+                        .body("Error parsing request".to_string().as_bytes().to_vec());
+                }
             }
         }
-        "/cal" => {
+        "/add" => {
             let content: String = match fs::read_to_string("static/calculator.html").await {
                 Ok(content) => content,
                 Err(_) => fs::read_to_string("static/404.html")
@@ -182,6 +132,80 @@ async fn handle_get(
             return response
                 .code(HttpCode::Ok)
                 .body(content.as_bytes().to_vec());
+        }
+        "/del" => match serde_json::from_str::<Friend>(request.body.as_str()) {
+            Ok(friend) => {
+                let _ = state.lock().await.delete_friend(&friend.name);
+
+                let friends = state.lock().await.get_all_friends();
+                let body = serde_json::to_string(&friends).unwrap();
+
+                info!(target: "request_logger","GET {} status: 200", request.uri);
+                return response
+                    .code(HttpCode::Ok)
+                    .content_type(ContentType::Text)
+                    .body(body.as_bytes().to_vec());
+            }
+            Err(_) => {
+                error!(target: "error_logger","Failed when deleting friend from database {}", request.uri);
+                info!(target: "request_logger","GET {} status: 404", request.uri);
+                return response
+                    .code(HttpCode::BadRequest)
+                    .content_type(ContentType::Text)
+                    .body(get_bytes(state, PathBuf::from(r"static/404.html"), "/404").await);
+            }
+        },
+        "/friends" => {
+            info!(target: "request_logger", "GET /friends status: 200");
+
+            let friends = state.lock().await.get_all_friends();
+            let body = serde_json::to_string(&friends).unwrap();
+
+            info!(target: "request_logger","GET {} status: 200", request.uri);
+            return response
+                .code(HttpCode::Ok)
+                .content_type(ContentType::Text)
+                .body(body.as_bytes().to_vec());
+        }
+
+        uri if uri.starts_with("/get") => {
+            let params = parse_query_params(uri);
+            if let Some(name) = params.get("input") {
+                info!(target: "request_logger", "GET /get?input={} status: 200", name);
+
+                let friend: Friend = match state.lock().await.get_friend(name) {
+                    Ok(Some(f)) => f,
+                    Ok(None) => {
+                        error!(target: "error_logger","Failed to find friend in database {}", request.uri);
+                        info!(target: "request_logger","GET {} status: 404", request.uri);
+                        return response
+                            .code(HttpCode::BadRequest)
+                            .content_type(ContentType::Text);
+                    }
+                    Err(_) => {
+                        error!(target: "error_logger","Failed to find friend in database {}", request.uri);
+                        info!(target: "request_logger","GET {} status: 404", request.uri);
+                        return response
+                            .code(HttpCode::BadRequest)
+                            .content_type(ContentType::Text);
+                    }
+                };
+
+                let body = serde_json::to_string(&friend).unwrap();
+
+                info!(target: "request_logger","GET {} status: 200", request.uri);
+                return response
+                    .code(HttpCode::Ok)
+                    .content_type(ContentType::Text)
+                    .body(body.as_bytes().to_vec());
+            }
+
+            error!(target: "error_logger","Failed when deleting friend from database {}", request.uri);
+            info!(target: "request_logger","GET {} status: 404", request.uri);
+            return response
+                .code(HttpCode::BadRequest)
+                .content_type(ContentType::Text)
+                .body(get_bytes(state, PathBuf::from(r"static/404.html"), "/404").await);
         }
         _ => {
             error!(target: "error_logger","Failed to serve request GET {}", request.uri);
