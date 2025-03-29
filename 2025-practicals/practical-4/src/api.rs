@@ -100,7 +100,7 @@ pub async fn handle_response(
 async fn handle_get(
     request: Request,
     state: Arc<Mutex<SharedState>>,
-    session_id: Uuid,
+    _session_id: Uuid,
 ) -> Response {
     let mut response = Response::default()
         .await
@@ -125,10 +125,10 @@ async fn handle_get(
                 .body(body.as_bytes().to_vec());
         }
 
-        uri if uri.starts_with("/get") => {
+        uri if uri.starts_with("/friend") => {
             let params = parse_query_params(uri);
-            if let Some(name) = params.get("input") {
-                info!(target: "request_logger", "GET /get?input={} status: 200", name);
+            if let Some(name) = params.get("name") {
+                info!(target: "request_logger", "GET /get?name={} status: 200", name);
 
                 let friend: Friend = match state.lock().await.get_friend(name) {
                     Ok(Some(f)) => f,
