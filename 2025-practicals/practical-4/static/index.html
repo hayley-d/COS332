@@ -36,7 +36,10 @@
 
   <table class="table table-bordered">
     <thead class="table-light">
-      <tr><th>Name</th><th>Number</th><th>View</th></tr>
+      <tr>
+          <th>Name</th>
+          <th>Number</th>
+      </tr>
     </thead>
     <tbody id="friends-table"></tbody>
   </table>
@@ -53,7 +56,6 @@
             row.innerHTML = `
               <td>${friend.name}</td>
               <td>${friend.number}</td>
-              <td><a class="btn btn-sm btn-info" href="/friend?name=${encodeURIComponent(friend.name)}">View</a></td>
             `;
             table.appendChild(row);
           });

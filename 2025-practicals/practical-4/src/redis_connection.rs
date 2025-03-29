@@ -52,7 +52,7 @@ pub async fn read_and_cache_page(
     };
 
     // set for 10 minuets
-    let _: () = redis_connection.set_ex(route_name, &content, 600).unwrap();
+    let _: () = redis_connection.set_ex(route_name, &content, 6).unwrap();
     content.as_bytes().to_vec()
 }
 
