@@ -63,6 +63,14 @@ impl SharedState {
         Ok(())
     }
 
+    pub fn update_friend(&mut self, name: &str, number: &str) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "UPDATE friends SET number = ?1 WHERE name = ?2;",
+            rusqlite::params![number, name],
+        )?;
+        Ok(())
+    }
+
     pub fn get_friend(&self, name: &str) -> rusqlite::Result<Option<crate::api::Friend>> {
         let mut stmt = self
             .conn

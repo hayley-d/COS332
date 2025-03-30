@@ -234,6 +234,26 @@ async fn handle_post(request: Request, state: Arc<Mutex<SharedState>>) -> Respon
                     .body("Unable to add friend".to_string().as_bytes().to_vec());
             }
         },
+        "/update" => match serde_json::from_str::<Friend>(&request.body) {
+            Ok(friend) => {
+                let _ = state
+                    .lock()
+                    .await
+                    .update_friend(&friend.name, &friend.number);
+                info!(target: "request_logger","POST {} status: 200", request.uri);
+                return response
+                    .code(HttpCode::Ok)
+                    .body("Success".to_string().as_bytes().to_vec());
+            }
+            Err(_) => {
+                error!(target: "error_logger","Failed when adding friend to database {}", request.uri);
+                info!(target: "request_logger","POST {} status: 500", request.uri);
+                return response
+                    .code(HttpCode::InternalServerError)
+                    .content_type(ContentType::Text)
+                    .body("Unable to add friend".to_string().as_bytes().to_vec());
+            }
+        },
         "/del" => match serde_json::from_str::<FriendName>(request.body.as_str()) {
             Ok(friend) => {
                 let _ = state.lock().await.delete_friend(&friend.name);
