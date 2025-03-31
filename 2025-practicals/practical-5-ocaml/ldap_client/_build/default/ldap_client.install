@@ -1,0 +1,8 @@
+lib: [
+  "_build/install/default/lib/ldap_client/META"
+  "_build/install/default/lib/ldap_client/dune-package"
+  "_build/install/default/lib/ldap_client/opam"
+]
+bin: [
+  "_build/install/default/bin/ldap_client"
+]

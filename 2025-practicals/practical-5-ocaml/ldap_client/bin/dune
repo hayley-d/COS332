@@ -1,0 +1,4 @@
+(executable
+ (public_name ldap_client)
+ (name main)
+ (libraries unix))
