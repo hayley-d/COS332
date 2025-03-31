@@ -103,6 +103,7 @@ let make_response message_id cn number =
 
 (* LDAP client handling *)
 let handle_client sock =
+  Printf.printf "Client connected\n%!";
   let tag = read_byte sock in
   if tag <> 0x30 then failwith "Expected SEQUENCE";
 
