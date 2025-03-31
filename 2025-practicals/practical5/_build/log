@@ -1,0 +1,6 @@
+# dune init proj practical5
+# OCAMLPARAM: unset
+# Shared cache: enabled-except-user-rules
+# Shared cache location: /home/hayley/.cache/dune/db
+# Workspace root: /home/hayley/Documents/COS332/2025-practicals/practical5
+# Auto-detected concurrency: 16

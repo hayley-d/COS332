@@ -1,0 +1,4 @@
+(executable
+ (public_name practical5)
+ (name main)
+ (libraries unix))
