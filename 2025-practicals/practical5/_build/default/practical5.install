@@ -1,0 +1,8 @@
+lib: [
+  "_build/install/default/lib/practical5/META"
+  "_build/install/default/lib/practical5/dune-package"
+  "_build/install/default/lib/practical5/opam"
+]
+bin: [
+  "_build/install/default/bin/practical5"
+]

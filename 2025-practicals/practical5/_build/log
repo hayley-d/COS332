@@ -1,6 +1,16 @@
-# dune init proj practical5
+# dune exec bin/main.exe
 # OCAMLPARAM: unset
 # Shared cache: enabled-except-user-rules
 # Shared cache location: /home/hayley/.cache/dune/db
 # Workspace root: /home/hayley/Documents/COS332/2025-practicals/practical5
 # Auto-detected concurrency: 16
+# Dune context:
+#  { name = "default"
+#  ; kind = "default"
+#  ; profile = Dev
+#  ; merlin = true
+#  ; fdo_target_exe = None
+#  ; build_dir = In_build_dir "default"
+#  ; instrument_with = []
+#  }
+$ /home/hayley/.opam/default/bin/ocamlc.opt -config > /tmp/dune_e79df2_output
