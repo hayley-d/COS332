@@ -1,27 +1,32 @@
 (* open Unix;; *)
+type org_unit = Friends | Acquaintances | Enemies
 
 type entry = {
-    cn : string;
-    number : string;
+  cn : string;
+  number : string;
+  ou : org_unit;
 }
 
-let friends : entry list = [
-    { cn = "Geralt"; number = "1110000001"};
-    { cn = "Yennefer"; number = "1110000002"};
-    { cn = "GLaODS"; number = "1110000003"};
-    { cn = "Wheatley"; number = "1110000004"};
-    { cn = "Atlas"; number = "2220000007"};
-    { cn = "Pbody"; number = "2220000008"};
-    { cn = "Rick"; number = "2220000009"};
-    { cn = "Caroline"; number = "2220000001"};
-    { cn = "Emma"; number = "2220000002"};
-    { cn = "Hayley"; number = "2220000003"};
-    { cn = "Chell"; number = "2220000004"};
-    { cn = "Lambert"; number = "2220000005"};
-    { cn = "Ciri"; number = "2220000006"};
-    { cn = "Triss"; number = "2220000010"};
-    { cn = "Roach"; number = "2220000011"};
+let directory : entry list = [
+  { cn = "Geralt"; number = "1110000001"; ou = Friends };
+  { cn = "Yennefer"; number = "1110000002"; ou = Friends };
+  { cn = "Ciri"; number = "1110000003"; ou = Friends };
+  { cn = "Wheatley"; number = "2220000001"; ou = Friends };
+  { cn = "GLaDOS"; number = "2220000002"; ou = Friends };
+
+  { cn = "Lambert"; number = "3330000001"; ou = Acquaintances };
+  { cn = "Eskel"; number = "3330000002"; ou = Acquaintances };
+  { cn = "Vesemir"; number = "3330000003"; ou = Acquaintances };
+  { cn = "Roach"; number = "3330000004"; ou = Acquaintances };
+  { cn = "Caroline"; number = "3330000005"; ou = Acquaintances };
+
+  { cn = "Dijkstra"; number = "4440000001"; ou = Enemies };
+  { cn = "Emhyr"; number = "4440000002"; ou = Enemies };
+  { cn = "Nilfgaard"; number = "4440000003"; ou = Enemies };
+  { cn = "AngryCore"; number = "4440000004"; ou = Enemies };
+  { cn = "AdventureCore"; number = "4440000005"; ou = Enemies };
 ]
+
 
 (* BER utility functions *)
 let read_byte sock = 
@@ -46,7 +51,7 @@ let read_bytes sock len =
     ignore (Unix.read sock buf 0 len);
     buf
 
-let make_response message_id cn number =
+let make_response message_id cn number ou =
   (* Encode a BER Octet String (tag 0x04) *)
   let encode_str s =
     let len = String.length s in
@@ -79,8 +84,14 @@ let make_response message_id cn number =
     [Char.chr 0x30; Char.chr (List.length inner)] @ inner
   in
 
+  let ou_str = match ou with
+    | Friends -> "Friends"
+    | Acquaintances -> "Acquaintances"
+    | Enemies -> "Enemies"
+  in
+
   (* Construct the full DN string *)
-  let dn_string = "cn=" ^ cn ^ ",ou=Friends,dc=example,dc=com" in
+  let dn_string = "cn=" ^ cn ^ ",ou=" ^ ou_str ^ ",dc=example,dc=com" in
   let encoded_dn = encode_str dn_string in
 
   (* Construct the SearchResultEntry (APPLICATION 4 / tag 0x64) *)
@@ -131,10 +142,16 @@ let handle_client sock =
         Scanf.sscanf base_dn "cn=%s@," (fun x -> x)
       with _ -> ""
     in
-    let found = List.find_opt (fun e -> String.lowercase_ascii e.cn = String.lowercase_ascii cn) friends in
+
+    let found =
+        List.find_opt
+            (fun e -> e.ou = Friends && String.lowercase_ascii e.cn = String.lowercase_ascii cn)
+        directory
+    in
+
     begin match found with
     | Some e ->
-        let response = make_response msg_id e.cn e.number in
+        let response = make_response msg_id e.cn e.number e.ou in
         ignore (Unix.write sock response 0 (Bytes.length response))
     | None ->
         Printf.printf "Friend not found: %s\n" base_dn
