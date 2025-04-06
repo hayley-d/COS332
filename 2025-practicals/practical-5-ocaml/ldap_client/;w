@@ -29,7 +29,7 @@ let build_search_request name =
 let parse_response bytes len =
   let rec _read_n i n acc =
     if n = 0 then (i, List.rev acc)
-    else _read_n (i + 1) (n - 1) (bytes.[i] :: acc)
+    else read_n (i + 1) (n - 1) (bytes.[i] :: acc)
   in
 
   let read_tag i =
@@ -38,7 +38,7 @@ let parse_response bytes len =
     (tag, len, i + 2)
   in
 
-  let _skip_field i = 
+  let rec _skip_field i = 
     let _, len, next = read_tag i in
     next + len
   in
@@ -73,8 +73,7 @@ let () =
   let buf = Bytes.create 4096 in
   let n = read sock buf 0 4096 in
 
-  let response_str = Bytes.sub_string buf 0 n in
-  match parse_response response_str n with
+  match parse_response buf n with
   | Some number -> Printf.printf "Phone number: %s\n" number
   | None -> Printf.printf "Friend not found or no number in response.\n"
 
