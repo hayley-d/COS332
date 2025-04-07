@@ -8,24 +8,28 @@ type entry = {
 }
 
 let directory : entry list = [
-  { cn = "Geralt"; number = "1110000001"; ou = Friends };
-  { cn = "Yennefer"; number = "1110000002"; ou = Friends };
-  { cn = "Ciri"; number = "1110000003"; ou = Friends };
-  { cn = "Wheatley"; number = "2220000001"; ou = Friends };
-  { cn = "GLaDOS"; number = "2220000002"; ou = Friends };
+  (* Friends *)
+  { cn = "Gary Goodspeed"; number = "1110000001"; ou = Friends };
+  { cn = "Mooncake"; number = "1110000002"; ou = Friends };
+  { cn = "Quinn Ergon"; number = "1110000003"; ou = Friends };
+  { cn = "Avocato"; number = "1110000004"; ou = Friends };
+  { cn = "Little Cato"; number = "1110000005"; ou = Friends };
 
-  { cn = "Lambert"; number = "3330000001"; ou = Acquaintances };
-  { cn = "Eskel"; number = "3330000002"; ou = Acquaintances };
-  { cn = "Vesemir"; number = "3330000003"; ou = Acquaintances };
-  { cn = "Roach"; number = "3330000004"; ou = Acquaintances };
-  { cn = "Caroline"; number = "3330000005"; ou = Acquaintances };
+  (* Acquaintances *)
+  { cn = "H.U.E."; number = "2220000001"; ou = Acquaintances };
+  { cn = "KVN"; number = "2220000002"; ou = Acquaintances };
+  { cn = "Tribore"; number = "2220000003"; ou = Acquaintances };
+  { cn = "Fox"; number = "2220000004"; ou = Acquaintances };
+  { cn = "Ash Graven"; number = "2220000005"; ou = Acquaintances };
 
-  { cn = "Dijkstra"; number = "4440000001"; ou = Enemies };
-  { cn = "Emhyr"; number = "4440000002"; ou = Enemies };
-  { cn = "Nilfgaard"; number = "4440000003"; ou = Enemies };
-  { cn = "AngryCore"; number = "4440000004"; ou = Enemies };
-  { cn = "AdventureCore"; number = "4440000005"; ou = Enemies };
+  (* Enemies *)
+  { cn = "The Lord Commander"; number = "3330000001"; ou = Enemies };
+  { cn = "Invictus"; number = "3330000002"; ou = Enemies };
+  { cn = "Clarence"; number = "3330000003"; ou = Enemies };
+  { cn = "Todd Watson"; number = "3330000004"; ou = Enemies };
+  { cn = "Nightfall"; number = "3330000005"; ou = Enemies }; 
 ]
+
 
 
 (* BER utility functions *)
