@@ -534,3 +534,28 @@
 2025-03-30 19:16:06.155 [INFO] main /home/hayley/Documents/COS332/2025-practicals/practical-4/src/server.rs:183 - Server Started
 2025-03-30 19:16:06.155 [INFO] main src/socket.rs:67 - Server started listening on port 7878
 2025-03-30 19:16:06.156 [INFO] main /home/hayley/Documents/COS332/2025-practicals/practical-4/src/socket.rs:96 - TLS certificate and keys configured
+2025-04-04 03:38:47.198 [INFO] main /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/server.rs:183 - Server Started
+2025-04-04 03:38:47.206 [INFO] main src/socket.rs:67 - Server started listening on port 7878
+2025-04-04 03:38:47.207 [INFO] main /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/socket.rs:96 - TLS certificate and keys configured
+2025-04-04 03:39:05.522 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/server.rs:290 - TLS handshake successful with 127.0.0.1:38718
+2025-04-04 03:39:05.523 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/api.rs:111 - GET / from status 200
+2025-04-04 03:39:05.715 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/server.rs:290 - TLS handshake successful with 127.0.0.1:38722
+2025-04-04 03:39:05.716 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/api.rs:116 - GET /friends status: 200
+2025-04-04 03:39:05.717 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/api.rs:121 - GET /friends status: 200
+2025-04-04 03:39:05.845 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/server.rs:290 - TLS handshake successful with 127.0.0.1:38748
+2025-04-04 03:39:05.846 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/api.rs:111 - GET / from status 200
+2025-04-04 03:39:15.242 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/server.rs:290 - TLS handshake successful with 127.0.0.1:36452
+2025-04-04 03:39:15.254 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/api.rs:223 - POST /add status: 200
+2025-04-04 03:39:15.266 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/server.rs:290 - TLS handshake successful with 127.0.0.1:36480
+2025-04-04 03:39:15.267 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/api.rs:116 - GET /friends status: 200
+2025-04-04 03:39:15.267 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/api.rs:121 - GET /friends status: 200
+2025-04-04 03:39:22.343 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/server.rs:290 - TLS handshake successful with 127.0.0.1:36492
+2025-04-04 03:39:22.355 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/api.rs:243 - POST /update status: 200
+2025-04-04 03:39:22.367 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/server.rs:290 - TLS handshake successful with 127.0.0.1:36504
+2025-04-04 03:39:22.367 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/api.rs:116 - GET /friends status: 200
+2025-04-04 03:39:22.368 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/api.rs:121 - GET /friends status: 200
+2025-04-04 03:39:27.287 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/server.rs:290 - TLS handshake successful with 127.0.0.1:43248
+2025-04-04 03:39:27.308 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/api.rs:264 - POST /del status: 200
+2025-04-04 03:39:27.319 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/server.rs:290 - TLS handshake successful with 127.0.0.1:43266
+2025-04-04 03:39:27.320 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/api.rs:116 - GET /friends status: 200
+2025-04-04 03:39:27.320 [INFO] tokio-runtime-worker /home/hayley/Documents/COS332_Main/COS332/2025-practicals/practical-4/src/api.rs:121 - GET /friends status: 200

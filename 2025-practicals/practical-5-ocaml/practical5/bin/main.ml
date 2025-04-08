@@ -1,10 +1,12 @@
 (* open Unix;; *)
 
+(* Entry type *)
 type entry = {
     cn : string;
     number : string;
 }
 
+(* Friend list *)
 let friends : entry list = [
     { cn = "Geralt"; number = "1110000001"};
     { cn = "Yennefer"; number = "1110000002"};
@@ -120,7 +122,7 @@ let handle_client sock =
   else if op_tag = 0x63 then
     let _ = read_length sock in
     let base_dn_tag = read_byte sock in
-    Printf.printf "Base DN tag: 0x%02X\n" base_dn_tag;
+    Printf.printf "Base DN tag: 0x%02X\n!" base_dn_tag;
     let base_dn_len = read_length sock in
     let base_dn_bytes = read_bytes sock base_dn_len in
     let base_dn = Bytes.to_string base_dn_bytes in
@@ -137,10 +139,10 @@ let handle_client sock =
         let response = make_response msg_id e.cn e.number in
         ignore (Unix.write sock response 0 (Bytes.length response))
     | None ->
-        Printf.printf "Friend not found: %s\n" base_dn
+        Printf.printf "Friend not found: %s\n!" base_dn
     end
   else
-    Printf.printf "Unknown operation tag: %d\n" op_tag
+    Printf.printf "Unknown operation tag: %d\n!" op_tag
 
 (* Start a TCP server *)
 let start_server () =

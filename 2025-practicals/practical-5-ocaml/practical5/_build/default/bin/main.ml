@@ -1,10 +1,12 @@
 (* open Unix;; *)
 
+(* Entry type *)
 type entry = {
     cn : string;
     number : string;
 }
 
+(* Friend list *)
 let friends : entry list = [
     { cn = "Geralt"; number = "1110000001"};
     { cn = "Yennefer"; number = "1110000002"};
