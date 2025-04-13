@@ -52,3 +52,9 @@ Additionals
 * Parse server responses for delivery confirmations (e.g., 250 2.0.0 OK) and provide the user with feedback.
 * Implement DKIM signing to add a cryptographic signature to your email headers, ensuring authenticity and integrity.
 
+```
+SMTP_SERVER=smtp.protonmail.ch
+SMTP_PORT=587
+SMTP_USERNAME=hayley@hayleydodkins.com
+SMTP_TOKEN=
+```
