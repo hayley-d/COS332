@@ -2,6 +2,11 @@
 In this assignment, the goal is to modify a previous system (which was based on multiple-choice questions) to email the results to a specified recipient. 
 This means when the user completes the test, instead of just displaying the results, you need to programmatically send the results via email.
 
+## TO RUN
+```bash
+cargo run -- --target-email 2002dodhay@gmail.com
+```
+
 ### Key Tasks:
 
 #### 1. Email Results
