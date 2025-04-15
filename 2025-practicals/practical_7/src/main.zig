@@ -32,7 +32,7 @@ const c_error = enum {
 
 const Socket = struct {
     address: std.net.Address,
-    socket: std.os.socket_t,
+    socket: std.os.socket,
 
     fn init(ip: []const u8, port: u16) !Socket {
         const parsed_address = try std.net.Address.parseIp4(ip, port);
@@ -64,7 +64,7 @@ const Socket = struct {
     }
 
     fn read(self: *Socket, allocator: *std.mem.Allocator) ![]const u8 {
-        var buffer: [1024]u8 = undefined;
+        const buffer: [1024]u8 = undefined;
         const bytes_read = try std.os.read(self.socket, buffer);
         return try allocator.alloc(u8, bytes_read).catchAllocErr();
     }
