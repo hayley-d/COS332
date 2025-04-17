@@ -44,41 +44,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    /*match stream.write_all("STARTTLS\r\n".as_bytes()).await {
-        Ok(_) => {
-            println!("STARTTLS command sent");
-        }
-        Err(e) => {
-            eprintln!("Failed to send STARTTLS command: {}", e);
-            std::process::exit(1);
-        }
-    }
-
-    let _ = stream.flush();
-
-    let connector: tokio_native_tls::TlsConnector =
-        tokio_native_tls::TlsConnector::from(match native_tls::TlsConnector::new() {
-            Ok(tls) => tls,
-            Err(_) => {
-                eprintln!("Failed to esablish TLS Connector");
-                std::process::exit(1);
-            }
-        });
-
-    let connector = tokio_native_tls::TlsConnector::from(
-        native_tls::TlsConnector::builder()
-            .danger_accept_invalid_certs(true)
-            .build()?,
-    );
-
-    let mut tls_stream = match connector.connect("localhost", stream).await {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("Failed to initialize TLS: {:?}", e);
-            std::process::exit(1);
-        }
-    };*/
-
     let login_command: String = format!("a001 LOGIN {} {}\r\n", state.username, state.password);
     let _ = stream.write_all(login_command.as_bytes()).await;
 
@@ -113,47 +78,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let fetch_command: &str = "a003 FETCH 1:* (BODY[HEADER.FIELDS (FROM SUBJECT SIZE)])\r\n";
     stream.write_all(fetch_command.as_bytes()).await?;
     println!("Successful Fetch command");
-    let mut greeting = vec![0u8; 1024];
-    match stream.read(&mut greeting).await {
+
+    let mut fetch = vec![0u8; 1024];
+
+    let fetched_str = match stream.read(&mut fetch).await {
         Ok(bytes_read) => {
-            let greeting_str = String::from_utf8_lossy(&greeting[..bytes_read]);
-            println!("Server Fetch: {}", greeting_str);
+            let fetch_str = String::from_utf8_lossy(&greeting[..bytes_read]);
+            println!("Server Select: {}", fetch_str);
+            fetch_str
         }
         Err(e) => {
-            eprintln!("Failed to read server Fetch: {}", e);
+            eprintln!("Failed to read server Select: {}", e);
             std::process::exit(1);
         }
-    }
+    };
 
-    let mut response: Vec<u8> = Vec::new();
-    stream.read(&mut response).await?;
-
-    parse_imap_response(&response);
+    parse_imap_response(fetched_str.to_string());
 
     Ok(())
 }
 
 // Function to parse the IMAP response and extract email headers
-fn parse_imap_response(response: &[u8]) {
-    let response_str: std::borrow::Cow<'_, str> = String::from_utf8_lossy(response);
-    let lines: Vec<&str> = response_str.split("\r\n").collect();
-
+fn parse_imap_response(response: String) {
+    let lines: Vec<&str> = response.split("\r\n").collect();
     let mut current_email = String::new();
 
-    // Process each line of the response
     for line in lines {
-        // If the line starts with "*", it's a new email entry
-        if line.starts_with('*') {
-            // Print the current email details (previous email data)
+        if line.contains('*') {
             if !current_email.is_empty() {
                 println!("{}", current_email);
             }
 
-            // Start a new email entry
             current_email = String::new();
         }
 
-        // Extract fields like "From", "Subject", and "Size"
         if line.starts_with("From:") {
             current_email.push_str(&format!("Sender: {}\n", &line[5..].trim()));
         } else if line.starts_with("Subject:") {
@@ -163,7 +121,6 @@ fn parse_imap_response(response: &[u8]) {
         }
     }
 
-    // Print the last email entry (in case the last email is missing the newline)
     if !current_email.is_empty() {
         println!("{}", current_email);
     }

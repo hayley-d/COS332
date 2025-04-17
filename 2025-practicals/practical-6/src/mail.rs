@@ -28,7 +28,7 @@ pub async fn send_mail(
     };
 
     // Send HELO
-    send_command(&mut stream, "EHLO alarm.local\r\n", ResponseKind::Multi).await?;
+    send_command(&mut stream, "EHLO ferris.local\r\n", ResponseKind::Multi).await?;
 
     // Start TLS
     send_command(&mut stream, "STARTTLS\r\n", ResponseKind::Single).await?;
@@ -46,7 +46,12 @@ pub async fn send_mail(
     let mut tls_stream = connector.connect(&smtp_server, stream).await?;
 
     // Send HELO again after TLS is established
-    send_command(&mut tls_stream, "EHLO alarm.local\r\n", ResponseKind::Multi).await?;
+    send_command(
+        &mut tls_stream,
+        "EHLO ferris.local\r\n",
+        ResponseKind::Multi,
+    )
+    .await?;
 
     let auth_string: String = format!("\0{}\0{}", username, token);
     let auth_encoded = base64::engine::general_purpose::URL_SAFE.encode(auth_string);

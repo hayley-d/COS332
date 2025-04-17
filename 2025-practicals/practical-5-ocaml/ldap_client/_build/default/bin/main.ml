@@ -64,7 +64,7 @@ let () =
   let name = read_line () in
   let req = build_search_request name in
 
-  let addr = (gethostbyname "localhost").h_addr_list.(0) in
+  let addr = (gethostbyname "192.168.101.138").h_addr_list.(0) in
   let sock = socket PF_INET SOCK_STREAM 0 in
   connect sock (ADDR_INET (addr, 7878));  
 
