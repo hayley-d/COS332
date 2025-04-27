@@ -7,6 +7,7 @@ import (
     "os"
     "strings"
     "github.com/joho/godotenv"
+    "github.com/fatih/color"
 )
 
 func main() {
@@ -93,33 +94,52 @@ func main() {
 func sendCommand(conn net.Conn, reader *bufio.Reader, cmd string) {
     fmt.Fprintf(conn, "%s\r\n", cmd)
     response, _ := reader.ReadString('\n')
-    fmt.Print(response)
+    
+    if strings.HasPrefix(response, "+OK") {
+        green := color.New(color.FgHiGreen).SprintFunc()
+        fmt.Print(green(response))
+    } else if strings.HasPrefix(response, "-ERR") {
+        red := color.New(color.FgHiRed).SprintFunc()
+        fmt.Print(red(response))
+    } else {
+        fmt.Print(response)
+    }
 }
 
 func sendCommandMultiline(conn net.Conn, reader *bufio.Reader, cmd string) {
     fmt.Fprintf(conn, "%s\r\n", cmd)
-    //fmt.Printf("%s\r\n", cmd)
     for {
         line, _ := reader.ReadString('\n')
-        fmt.Print(line)
         if strings.TrimSpace(line) == "." {
             break
+        }
+        if strings.HasPrefix(line, "+OK") {
+            green := color.New(color.FgHiGreen).SprintFunc()
+            fmt.Print(green(line))
+        } else if strings.HasPrefix(line, "-ERR") {
+            red := color.New(color.FgHiRed).SprintFunc()
+            fmt.Print(red(line))
+        } else {
+            fmt.Print(line)
         }
     }
 }
 
 func printMenu() {
+    lilac := color.New(color.FgHiMagenta).SprintFunc()
+
     fmt.Print()
-    fmt.Println("╔═══════════════════════════════════════╗")
-    fmt.Println("║              POP3 Client              ║")
-    fmt.Println("╠═══════════════════════════════════════╣")
-    fmt.Println("║ 1. List Emails                        ║")
-    fmt.Println("║ 2. Retrieve Email                     ║")
-    fmt.Println("║ 3. Delete Email                       ║")
-    fmt.Println("║ 4. View Inbox Status (STAT)           ║")
-    fmt.Println("║ 5. View Unique IDs (UIDL)             ║")
-    fmt.Println("║ 6. Reset Deletions (RSET)             ║")
-    fmt.Println("║ 7. Ping Server (NOOP)                 ║")
-    fmt.Println("║ 8. Quit                               ║")
-    fmt.Println("║                                       ║")
-    fmt.Println("╚═══════════════════════════════════════╝")}
+    fmt.Println(lilac("╔═══════════════════════════════════════╗"))
+    fmt.Println(lilac("║              POP3 Client              ║"))
+    fmt.Println(lilac("╠═══════════════════════════════════════╣"))
+    fmt.Println(lilac("║ 1. List Emails                        ║"))
+    fmt.Println(lilac("║ 2. Retrieve Email                     ║"))
+    fmt.Println(lilac("║ 3. Delete Email                       ║"))
+    fmt.Println(lilac("║ 4. View Inbox Status (STAT)           ║"))
+    fmt.Println(lilac("║ 5. View Unique IDs (UIDL)             ║"))
+    fmt.Println(lilac("║ 6. Reset Deletions (RSET)             ║"))
+    fmt.Println(lilac("║ 7. Ping Server (NOOP)                 ║"))
+    fmt.Println(lilac("║ 8. Quit                               ║"))
+    fmt.Println(lilac("║                                       ║"))
+    fmt.Println(lilac("╚═══════════════════════════════════════╝"))
+}
