@@ -51,6 +51,7 @@ func handleClient(conn net.Conn) {
     // Variables to track state
     authenticated := false
     var username string
+    deleted := make(map[int]bool)
 
     users := map[string]string {
         "hayley@proton.me" : "u21528790",
@@ -142,6 +143,44 @@ func handleClient(conn net.Conn) {
             response = fmt.Appendf(response, "%s\r\n.\r\n", email.Content)
             conn.Write(response)
 
+        case "DELE":
+            if !authenticated {
+                conn.Write([]byte("-ERR Authenticate first\r\n"))
+                continue
+            }
+            if arg == "" {
+                conn.Write([]byte("-ERR Message number required\r\n"))
+                continue
+            }
+            msgIdx := -1
+            fmt.Sscanf(arg,"%d", &msgIdx)
+            if(msgIdx < 1) {
+                conn.Write([]byte("-ERR No such message\r\n"))
+                continue
+            }
+            if deleted[msgIdx] {
+                conn.Write([]byte("-ERR Message already deleted\r\n"))
+                continue
+            } else {
+                deleted[msgIdx] = true
+                conn.Write([]byte("+OK Message marked for deletion\r\n"))
+            }
+
+        case "RESET":
+            if !authenticated {
+                conn.Write([]byte("-ERR Authenticate first\r\n"))
+                continue
+            }
+            deleted = make(map[int]bool)
+            conn.Write([]byte("+OK Reset state\r\n"))
+
+        case "NOOP":
+            if !authenticated {
+                conn.Write([]byte("-ERR Authenticate first\r\n"))
+                continue
+            }
+            conn.Write([]byte("+OK\r\n"))
+
         case "QUIT":
             conn.Write([]byte("+OK Goodbye\r\n"))
             return
@@ -151,13 +190,6 @@ func handleClient(conn net.Conn) {
                 conn.Write([]byte("-ERR Authenticate first\r\n"))
                 continue
             } 
-            //conn.Write([]byte("-ERR Unknown command\r\n"))
-        }
-
-        if strings.HasPrefix(strings.ToUpper(input),"QUIT") {
-            conn.Write([]byte("+ OK Goodbye\r\n"))
-            return
-        } else {
             conn.Write([]byte("-ERR Unknown command\r\n"))
         }
     }
