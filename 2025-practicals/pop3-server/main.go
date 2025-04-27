@@ -177,8 +177,8 @@ func handleClient(conn net.Conn) {
             var response []byte
 
             response = fmt.Appendf(response,"+OK %d octets\r\n",len(email.Content))
-            response = fmt.Appendf(response, "%s\r\n", email.Sender)
-            response = fmt.Appendf(response, "%s\r\n", email.Subject)
+            response = fmt.Appendf(response, "from: %s\r\n", email.Sender)
+            response = fmt.Appendf(response, "subject: %s\r\n", email.Subject)
             response = fmt.Appendf(response, "%s\r\n.\r\n", email.Content)
             conn.Write(response)
 
