@@ -181,7 +181,63 @@ func handleClient(conn net.Conn) {
             }
             conn.Write([]byte("+OK\r\n"))
 
+        case "STAT":
+            if !authenticated {
+                conn.Write([]byte("-ERR Authenticate first\r\n"))
+                continue
+            }
+            emails, exists := mailbox[username]
+            if !exists {
+                conn.Write([]byte("-ERR No mailbox found\r\n"))
+                continue
+            }
+            count := 0
+            totalSize := 0
+            for idx, email := range emails {
+                if !deleted[idx+1] {
+                    count++
+                    totalSize += len(email.Content)
+                }
+            }
+            var response []byte
+            response = fmt.Appendf(response, "+OK %d %d\r\n",count, totalSize)
+            conn.Write(response)
+
+        case "UIDL":
+            if !authenticated {
+                conn.Write([]byte("-ERR Authenticate first\r\n"))
+                continue
+            }
+            emails, exists := mailbox[username]
+            if !exists || len(emails) == 0{
+                conn.Write([]byte("-OK 0 messages\r\n"))
+                continue
+            }
+            var response []byte
+            response = fmt.Appendf(response,"+OK Unique-ID listing\r\n")
+            for idx, email := range emails {
+                if !deleted[idx+1] {
+                    response = fmt.Appendf(response,"%d %s\r\n", idx+1, email.ID)
+                }
+            }
+            response = fmt.Appendf(response,".\r\n")
+            conn.Write(response)
+
         case "QUIT":
+            if !authenticated {
+                conn.Write([]byte("+OK Goodbye\r\n"))
+                return
+            }
+            emails, exists := mailbox[username]
+            if exists {
+                var newEmails []Email
+                for idx, email := range emails {
+                    if !deleted[idx+1] {
+                        newEmails = append(newEmails, email)
+                    }
+                }
+                mailbox[username] = newEmails
+            }
             conn.Write([]byte("+OK Goodbye\r\n"))
             return
 
