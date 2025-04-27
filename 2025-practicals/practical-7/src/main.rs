@@ -49,6 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Successful Login");
     let mut greeting = vec![0u8; 1024];
+
     match stream.read(&mut greeting).await {
         Ok(bytes_read) => {
             let greeting_str = String::from_utf8_lossy(&greeting[..bytes_read]);
@@ -62,6 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let select_command: &str = "a002 SELECT inbox\r\n";
     let _ = stream.write_all(select_command.as_bytes()).await;
+
     println!("Successful select command");
     let mut greeting = vec![0u8; 1024];
     match stream.read(&mut greeting).await {

@@ -22,3 +22,7 @@
 2025-04-13 17:43:27.473 [INFO] main src/main.rs:22 - CLI Application Started
 2025-04-13 17:43:33.096 [INFO] main /home/hayley/Documents/COS332/2025-practicals/practical-6/src/mail.rs:91 - Email send to 2002dodhay@gmail.com
 2025-04-13 17:43:40.414 [INFO] main /home/hayley/Documents/COS332/2025-practicals/practical-6/src/mail.rs:91 - Email send to 2002dodhay@gmail.com
+2025-04-24 05:23:03.063 [INFO] main src/main.rs:22 - CLI Application Started
+2025-04-24 05:23:56.354 [INFO] main src/main.rs:22 - CLI Application Started
+2025-04-24 05:24:04.001 [INFO] main /home/hayley/Documents/COS332/2025-practicals/practical-6/src/mail.rs:96 - Email send to 2002dodhay@gmail.com
+2025-04-24 05:24:10.455 [INFO] main /home/hayley/Documents/COS332/2025-practicals/practical-6/src/mail.rs:96 - Email send to 2002dodhay@gmail.com
