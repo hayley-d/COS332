@@ -129,16 +129,14 @@ func parsePASV(response string) (string, error) {
     }
 
     ip := strings.Join(numbers[0:4],".")
-    part1 := atoi(numbers[4])
-    part2 := atoi(numbers[5])
+
+    part1, err1 := strconv.Atoi(numbers[4])
+    part2, err2 := strconv.Atoi(numbers[5])
+
+    if err1 != nil || err2 != nil {
+        return "", fmt.Errorf("invalid PASV port numbers")
+    }
+
     port := part1*256 + part2
     return fmt.Sprintf("%s:%d",ip, port), nil
-}
-
-func atoi(str string) int {
-    num, err := strconv.Atoi(str)
-    if err != nil {
-        return 0
-    }
-    return num
 }
