@@ -7,6 +7,7 @@ import (
     "os"
     "strings"
     "time"
+    "strconv"
 )
 
 const (
@@ -65,14 +66,14 @@ func uploadFile() error {
     sendCommand(conn, "PASV")
     pasvResp := readResponse(conn)
 
-    dataAdd, err := parsePASC(pasvResp)
+    dataAdd, err := parsePASV(pasvResp)
     if err != nil {
         return fmt.Errorf("PASV parse error: %w", err)
     }
 
     dataConn, err := net.Dial("tcp", dataAdd)
     if err != nil {
-        return fmt.Errorf("Cannot open data connection: %w", err)
+        return fmt.Errorf("cannot open data connection: %w", err)
     }
     defer dataConn.Close()
 
@@ -83,13 +84,13 @@ func uploadFile() error {
     // Open the file and copy it into the connection
     open_file, err := os.Open(filePath)
     if err != nil {
-        return fmt.Errorf("Cannot open file: %w", err)
+        return fmt.Errorf("cannot open file: %w", err)
     }
     defer open_file.Close()
 
     _, err = io.Copy(dataConn, open_file)
     if err != nil {
-        return fmt.Errorf("Error sending file: %w", err)
+        return fmt.Errorf("error sending file: %w", err)
     }
 
     dataConn.Close()
@@ -118,6 +119,26 @@ func parsePASV(response string) (string, error) {
     end := strings.Index(response, ")")
 
     if start == -1 || end == -1 {
-        return "", fmt.Errorf("Invalid PASV address")
+        return "", fmt.Errorf("invalid PASV response")
     }
+
+    numbers := strings.Split(response[start+1:end],",")
+
+    if len(numbers) != 6 {
+        return "", fmt.Errorf("invalid PASV address")
+    }
+
+    ip := strings.Join(numbers[0:4],".")
+    part1 := atoi(numbers[4])
+    part2 := atoi(numbers[5])
+    port := part1*256 + part2
+    return fmt.Sprintf("%s:%d",ip, port), nil
+}
+
+func atoi(str string) int {
+    num, err := strconv.Atoi(str)
+    if err != nil {
+        return 0
+    }
+    return num
 }
