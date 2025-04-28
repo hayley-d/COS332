@@ -69,4 +69,55 @@ func uploadFile() error {
     if err != nil {
         return fmt.Errorf("PASV parse error: %w", err)
     }
+
+    dataConn, err := net.Dial("tcp", dataAdd)
+    if err != nil {
+        return fmt.Errorf("Cannot open data connection: %w", err)
+    }
+    defer dataConn.Close()
+
+    // Send STOR command
+    sendCommand(conn, "STOR file.html")
+    readResponse(conn)
+
+    // Open the file and copy it into the connection
+    open_file, err := os.Open(filePath)
+    if err != nil {
+        return fmt.Errorf("Cannot open file: %w", err)
+    }
+    defer open_file.Close()
+
+    _, err = io.Copy(dataConn, open_file)
+    if err != nil {
+        return fmt.Errorf("Error sending file: %w", err)
+    }
+
+    dataConn.Close()
+    readResponse(conn)
+
+    sendCommand(conn, "QUIT")
+    readResponse(conn)
+
+    return nil
+}
+
+func sendCommand(conn net.Conn, cmd string) {
+    fmt.Fprintf(conn, "%s\r\n", cmd)
+}
+
+func readResponse(conn net.Conn) string {
+    buffer := make([]byte, 4096)
+    size, _ := conn.Read(buffer)
+    response := string(buffer[:size])
+    fmt.Println("SERVER:", strings.TrimSpace(response))
+    return response
+}
+
+func parsePASV(response string) (string, error) {
+    start := strings.Index(response, "(")
+    end := strings.Index(response, ")")
+
+    if start == -1 || end == -1 {
+        return "", fmt.Errorf("Invalid PASV address")
+    }
 }
