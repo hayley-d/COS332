@@ -1,0 +1,26 @@
+8.2
+Your assignment
+You are expected to set up the following software on your virtual server:
+• The Apache server; and
+• A suitable FTP dæmon (that is able to write to a directory served by Apache)
+You are expected to write a program that monitors some HTML file on your
+workstation. Whenever this file changes (such as when it is edited) your program
+
+should notice the change and use the FTP protocol to send the updated version to
+your server computer.
+To demonstrate your program, point some browser to the appropriate URL on
+your server computer, such that it will display the file in question. Then you edit
+the HTML file on your workstation. Once you save it, it should automatically
+be uploaded by the program you wrote. The browser (possibly after pressing
+‘refresh’) will display the new version of the file.
+As always, your program is not allowed to use any pre-existing FTP client
+functionality: it has to open socket(s) and write FTP protocol commands and
+other values to the socket(s) and read responses from the socket(s).
+You may use polling to test whether the file in question has been updated on
+the workstation. If you poll, say, once a minute and two updates within a minute
+are not both uploaded, you will not be penalised.
+8.3
+Assessment
+A working program will be awarded 8 out of 10. To earn a higher mark your
+program has to do more than just the basics — in particular should it demonstrate
+that you have some deeper knowledge of the FTP protocol.
