@@ -8,6 +8,7 @@ import (
     "strings"
     "github.com/joho/godotenv"
     "github.com/fatih/color"
+	"crypto/tls"
 )
 
 type MessageInfo struct {
@@ -30,7 +31,7 @@ func main() {
     password := os.Getenv("POP3_PASS")
 
     // Connect to the POP3 server
-    conn, err := net.Dial("tcp", serverAddress)
+	conn, err := tls.Dial("tcp", serverAddress, nil)
     if err != nil {
         fmt.Println("Failed to connect:", err)
         return
