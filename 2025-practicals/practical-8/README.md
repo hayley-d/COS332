@@ -13,3 +13,7 @@ Server Link
 ```
 http://localhost/index.html
 ```
+
+## Very important links that should be visited by everyone reading this
+[Funny Frog Man](https://pbs.twimg.com/media/FLTHtDCWQAAjhVu.jpg)
+

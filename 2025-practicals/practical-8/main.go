@@ -75,6 +75,9 @@ func uploadFile(path string) error {
 	send(conn, "PASS "+password)
 	expect(r, "230")
 
+	send(conn, "TYPE I")
+	expect(r, "200")
+
 	send(conn, "PASV")
 	line := readLine(r)
 	fmt.Println("PASV response:", line)
