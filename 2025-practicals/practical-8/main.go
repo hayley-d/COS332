@@ -9,77 +9,94 @@ import (
 	"os"
 	"strings"
 	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-// FTP server configs the url and html file to watch for changes.
+// FTP connection configuration
 const (
 	ftpServer = "127.0.0.1:21"
 	filename  = "index.html"
 )
 
+// Environment variables and UI styles
 var (
-	// Enviroment variables for credentials.
 	username = os.Getenv("FTP_USER")
 	password = os.Getenv("FTP_PASS")
 
-	// Pretty pink text styling
-	pink     = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff69b4"))
+	styleTitle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("13"))
+	styleStatus    = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	styleCommand   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#f57de3"))
+	styleArrow     = lipgloss.NewStyle().Foreground(lipgloss.Color("86"))
+	styleResponse  = lipgloss.NewStyle().Foreground(lipgloss.Color("7"))
+	styleLogBox    = lipgloss.NewStyle().MarginTop(1).PaddingLeft(1).PaddingRight(1)
 )
 
-/* 
- Bubbletea model that holds the cli state
- status: status message
- lastResp: Last response from the ftp server
- lastHash: Last file hash to detect changes
-*/
-type model struct {
-	status   string	
-	lastResp string
-	lastHash [16]byte
+// Custom message type for triggering periodic checks
+type tickMsg time.Time
+
+// A single FTP interaction log entry
+// cmd: the command sent to the FTP server
+// response: the resulting response string from the server
+type logEntry struct {
+	cmd      string
+	response string
 }
 
-// Bubbletea init func
+// The main TUI model that holds app state
+// status: descriptive label of what the program is doing
+// lastHash: the last MD5 hash of the watched file
+// logs: list of previous FTP command-response logs
+type model struct {
+	status   string
+	lastHash [16]byte
+	logs     []logEntry
+}
+
+// The entry point that constructs the thingy and runs the program
+func main() {
+	// Initialize the Bubbletea thingy with the initial model
+	p := tea.NewProgram(model{status : "Waiting for changes..."})
+    if _, err := p.Run(); err != nil {
+        fmt.Printf("Alas, there's been an error: %v", err)
+        os.Exit(1)
+    }
+}
+
+// Initializes the thingy and starts polling every 10 seconds
 func (m model) Init() tea.Cmd {
-	// 10 second polling interval
 	return tea.Tick(10*time.Second, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
 }
 
-// Custom message type for polling ticks
-type tickMsg time.Time
-
-// Handles user input and events
+// Responds to messages + keypresses + periodic file polling
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-
 	case tea.KeyMsg:
-		// Quit on Ctrl + C
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
 
 	case tickMsg:
-		// Every 10 seconds check if the file has changed
+		// Check if file has changed by comparing hash
 		hash, err := hashFile(filename)
 		if err != nil {
-			m.status = "Error hashing file: " + err.Error()
-		} else if hash != m.lastHash {
-			m.status = "Change detected, uploading..."
-			resp, err := uploadFile(filename)
+			m.status = "Hash error: " + err.Error()
+			break
+		}
+		if hash != m.lastHash {
+			m.status = "Uploading..."
+			logs, err := uploadFile(filename)
 			if err != nil {
 				m.status = "Upload failed: " + err.Error()
-				m.lastResp = resp
 			} else {
-				m.status = "Upload successful!"
+				m.status = "Upload successful."
 				m.lastHash = hash
-				m.lastResp = resp
 			}
+			m.logs = append(m.logs, logs...)
 		}
-
-		// Schedule next polling time
 		return m, tea.Tick(10*time.Second, func(t time.Time) tea.Msg {
 			return tickMsg(t)
 		})
@@ -88,48 +105,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// View renders the current state to the terminal using pink colour
+// Renders the pretty components title, status, and FTP log history
 func (m model) View() string {
-	return pink.Render(fmt.Sprintf(
-		"%s\n\nLast FTP Response:\n%s\n\nPress Ctrl+C to exit",
-		m.status, m.lastResp))
+	title := styleTitle.Render(" FTP Upload Monitor")
+	status := styleStatus.Render(m.status)
+	logLines := make([]string, 0, len(m.logs))
+	// Format log entries with command → response style
+	for _, entry := range m.logs {
+		logLines = append(logLines,
+			fmt.Sprintf("%s %s %s",
+				styleCommand.Render("> "+entry.cmd),
+				styleArrow.Render("→"),
+				styleResponse.Render(entry.response),
+			))
+	}
+	logs := styleLogBox.Render(strings.Join(logLines, "\n"))
+	return fmt.Sprintf("%s\n%s\n\n%s\n\nPress Ctrl+C to quit.", title, status, logs)
 }
 
-// Program entry point
-func main() {
-	p := tea.NewProgram(model{})
-	if err := p.Start(); err != nil {
-		fmt.Println("Error running program:", err)
-		os.Exit(1)
-	}
-}
-/*func main() {
-	var lastHash [16]byte
-
-	for {
-		hash, err := hashFile(filename)
-		if err != nil {
-			fmt.Println("Error hashing file:", err)
-			continue
-		}
-
-		if hash != lastHash {
-			fmt.Println("Change detected, uploading...")
-			err := uploadFile(filename)
-			if err != nil {
-				fmt.Println("Upload failed:", err)
-			} else {
-				fmt.Println("Upload successful.")
-				lastHash = hash
-			}
-		}
-
-		time.Sleep(10 * time.Second)
-	}
-}*/
-
-// Computes the MD5 hash of the given file.
-// Used to detect when the file content was changed.
+// Computes the MD5 hash of a file
 func hashFile(path string) ([16]byte, error) {
 	var zero [16]byte
 	file, err := os.Open(path)
@@ -146,111 +140,96 @@ func readAll(file *os.File) []byte {
 	return data
 }
 
-// Performs manual FTP upload of the specified files.
-// Returns the final FTP server response or error.
-func uploadFile(path string) (string,error) {
+// Uploads the file via FTP and logs each step
+func uploadFile(path string) ([]logEntry, error) {
 	conn, err := net.Dial("tcp", ftpServer)
-
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-
 	defer conn.Close()
-	response := bufio.NewReader(conn)
+	r := bufio.NewReader(conn)
+	var logs []logEntry
 
-	// Start communication with FTP server
-	if line, ok := expect(response,"220"); !ok {
-		return line, fmt.Errorf("Expected 220 (welcome)")
+	// A helper for sending command and logging result
+	logf := func(cmd string, expectCode string) (string, error) {
+		if cmd != "" {
+			send(conn, cmd)
+		}
+		line := readLine(r)
+		logs = append(logs, logEntry{cmd, line})
+		if expectCode != "" && !strings.HasPrefix(line, expectCode) {
+			return line, fmt.Errorf("Expected %s, got: %s", expectCode, line)
+		}
+		return line, nil
 	}
 
-	// Send the USER command with the username
-	send(conn, "USER "+username)
-	if line, ok := expect(response,"331"); !ok {
-		return line, fmt.Errorf("Expected 331 after USER command")
+	if _, err := logf("", "220"); err != nil {
+		return logs, err
+	}
+	if _, err := logf("USER "+username, "331"); err != nil {
+		return logs, err
+	}
+	if _, err := logf("PASS "+password, "230"); err != nil {
+		return logs, err
+	}
+	if _, err := logf("TYPE I", "200"); err != nil {
+		return logs, err
 	}
 
-	// Send the PASS command with the password
-	send(conn, "PASS "+password)
-	if line, ok := expect(response,"230"); !ok {
-		return line, fmt.Errorf("Expected 230 after PASS command")
-	}
-
-	send(conn, "TYPE I")
-	if line, ok := expect(response, "200"); !ok {
-		return line, fmt.Errorf("Expected 200 after TYPE I command")
-	}
-
-	// Enter passive mode for data transfer
 	send(conn, "PASV")
-	psvLine := readLine(response)
-	ip, port := parsePASV(psvLine)
+	pasvLine := readLine(r)
+	logs = append(logs, logEntry{"PASV", pasvLine})
+	ip, port := parsePASV(pasvLine)
 
 	dataConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", ip, port))
 	if err != nil {
-		return psvLine, err
+		return logs, err
 	}
 	defer dataConn.Close()
 
-	// Send STOR command to start the file upload
-	send(conn, "STOR "+filename)
-	if line, ok := expect(response, "150"); !ok {
-		return line, fmt.Errorf("Expected 150 after STOR command")
+	if _, err := logf("STOR "+filename, "150"); err != nil {
+		return logs, err
 	}
 
-	// Send the file content over the data connection
 	file, err := os.Open(path)
 	if err != nil {
-		return "", err 
+		return logs, err
 	}
 	defer file.Close()
-
 	io.Copy(dataConn, file)
 	dataConn.Close()
 
-	// Confirm success
-	if line, ok := expect(response,"226"); !ok {
-		return line, fmt.Errorf("Expected 226 after file upload")
+	if _, err := logf("", "226"); err != nil {
+		return logs, err
 	}
-
-	// End FTP session
-	send(conn, "QUIT")
-	return "226 File Transfer complete", nil
+	logf("QUIT", "")
+	return logs, nil
 }
 
-// Sends a single FTP command
 func send(conn net.Conn, msg string) {
 	fmt.Fprintf(conn, msg+"\r\n")
 }
 
-// Reads a line and checks if it starts with the expected FTP status code
-func expect(r *bufio.Reader, code string) (string,bool)  {
-	line := readLine(r)
-	return line, strings.HasPrefix(line, code)
-}
-
-// Reads a line from the connection and trims the new line chars
 func readLine(r *bufio.Reader) string {
 	line, _ := r.ReadString('\n')
 	return strings.TrimSpace(line)
 }
 
-// Extracts the IP and port numbers froma PASV response
+// Parses PASV response and extracts the IP and port number
 func parsePASV(resp string) (string, int) {
 	start := strings.Index(resp, "(")
 	end := strings.Index(resp, ")")
 	parts := strings.Split(resp[start+1:end], ",")
-
 	ip := strings.Join(parts[0:4], ".")
 	p1 := atoi(parts[4])
 	p2 := atoi(parts[5])
-	port := p1*256 + p2
-
-	return ip, port
+	return ip, p1*256 + p2
 }
 
-// Converts string to int
+// Parses string to integer
 func atoi(s string) int {
 	var n int
 	fmt.Sscanf(s, "%d", &n)
 	return n
 }
+
