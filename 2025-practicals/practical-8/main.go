@@ -10,6 +10,7 @@ import (
     "strings"
     "time"
 	tea "github.com/charmbracelet/bubbletea"
+    "github.com/fatih/color"
 )
 
 type model struct {
@@ -19,8 +20,6 @@ type model struct {
 
 const (
     ftpServer = "127.0.0.1:21"
-    username  = "ftpuser"
-    password  = "u21528790"
     filename  = "index.html"
 	url = "http://192.168.0.4/index.html"
 )
@@ -34,8 +33,19 @@ func (e errMsg) Error() string {
 }
 
 func main() {
+    err := godotenv.Load()
+    if err != nil {
+		fmt.Println("Error loading .env file")
+        return
+    }
+
+    username := os.Getenv("USER")
+    password := os.Getenv("PASS")
+
     var lastHash [16]byte
 
+    lilac := color.New(color.FgHiMagenta).SprintFunc()
+    fmt.Println(lilac("Welcome to The 
     for {
         hash, err := hashFile(filename)
         if err != nil {
