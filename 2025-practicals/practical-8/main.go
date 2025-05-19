@@ -9,13 +9,21 @@ import (
     "os"
     "strings"
     "time"
+	tea "github.com/charmbracelet/bubbletea"
 )
+
+
+type model struct {
+	status int
+	err    error
+}
 
 const (
     ftpServer = "127.0.0.1:21"
     username  = "ftpuser"
     password  = "u21528790"
     filename  = "index.html"
+	url = "http://192.168.0.4/index.html"
 )
 
 func main() {
