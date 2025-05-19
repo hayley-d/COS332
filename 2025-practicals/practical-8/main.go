@@ -12,7 +12,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-
 type model struct {
 	status int
 	err    error
@@ -25,6 +24,14 @@ const (
     filename  = "index.html"
 	url = "http://192.168.0.4/index.html"
 )
+
+type statusMsg int
+
+type errMsg struct{ error }
+
+func (e errMsg) Error() string { 
+	return e.error.Error() 
+}
 
 func main() {
     var lastHash [16]byte
