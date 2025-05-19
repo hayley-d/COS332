@@ -16,7 +16,6 @@ import (
 
 // FTP connection configuration
 const (
-	ftpServer = "127.0.0.1:21"
 	filename  = "index.html"
 )
 
@@ -24,6 +23,7 @@ const (
 var (
 	username = os.Getenv("FTP_USER")
 	password = os.Getenv("FTP_PASS")
+	ftpServer = os.Getenv("FTP_URL")
 
 	styleTitle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("13"))
 	styleStatus    = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
