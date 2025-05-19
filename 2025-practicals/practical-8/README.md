@@ -8,3 +8,8 @@ System Status:
 ```bash
 systemctl status httpd.service
 ```
+
+Server Link
+```
+http://localhost/index.html
+```

@@ -12,9 +12,9 @@ import (
 )
 
 const (
-    ftpServer = "192.168.0.100:21" // Change this to your FTP server IP
+    ftpServer = "127.0.0.1:21"
     username  = "ftpuser"
-    password  = "ftppass"
+    password  = "u21528790"
     filename  = "index.html"
 )
 
@@ -39,7 +39,7 @@ func main() {
             }
         }
 
-        time.Sleep(10 * time.Second) // Poll every 10 seconds
+        time.Sleep(10 * time.Second) 
     }
 }
 
