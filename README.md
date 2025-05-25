@@ -51,7 +51,7 @@ If you see Go code here, pretend you don’t. I promise you, deep down, every li
 
 ## Collaborators
 
-- Practical 8 (FTP Monitor): Pair project with [PhillDup] (https://github.com/philldup).
+- Practical 8 (FTP Monitor): Pair project with ![PhillDup](https://github.com/philldup).
 - All other practicals: Individually completed.
 
 ---
