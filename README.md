@@ -26,13 +26,11 @@ If you see Go code here, pretend you don’t. I promise you, deep down, every li
 ---
 
 ## Technologies Used
-
-- Rust (Practicals 1-4, 6): For fine-grained control over sockets, memory safety, and protocol adherence.
-- OCaml (Practical 5): For functional programming exploration in building a LDAP server.
-- Go (Practicals 7–8): For leveraging Go’s powerful concurrency model and robust standard networking libraries.
-- Standard Unix/Linux tools: For setting up test servers (Apache, OpenLDAP, local SMTP, FTP daemons).
-- Markdown/HTML: For documenting and formatting server outputs.
-
+- **Rust:** For fearless, zero-cost abstractions, and the unmatched joy of watching the borrow checker let your code compile.
+- **OCaml:** For pattern matching your way to glory.
+- **Go:** For the moments when I whispered, “forgive me, Ferris, I have no time.”
+- **Linux tools:** For running servers like a proper hacker.
+- **Markdown/HTML:** For documenting it all.
 ---
 
 ## Highlights
@@ -83,7 +81,9 @@ dune build              # OCaml project
 
 ## Disclaimer 🦀
 
-Sure, you’ll find some Go here, but every time I typed `go build`, a tiny voice in my head whispered, *“You could’ve written this in Rust.”* Expect begrudging efficiency, not joyful switching. 🦀
+Yes, there’s Go here. Yes, it works.
+But know that every time I compiled a Go file, a tiny voice in my head whispered *"You could've written this in Rust."*.
+Fast, safe, and fearless concurrentcy. That’s the Rust promise. The Go parts...Let’s just call them temporary lapses in judgment.
 
 ## License
 
@@ -117,4 +117,16 @@ SOFTWARE.
 
 If you use or learn from this repository, please respect the educational context and do not submit this work as your own.
 
+---
 
+```
+       _~^~^~_
+   \) /  o o  \ (/
+     '_   -   _'
+     / '-----' \
+ 
+Ferris reminds you:
+- Use Rust.
+- Respect the borrow checker.
+- Ship safe, fast, fearless code.
+```
