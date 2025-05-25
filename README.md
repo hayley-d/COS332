@@ -1,8 +1,11 @@
-# COS 332 Practical Assignments – 2025
+# COS 332 Practical Assignments
 
 This repository contains my completed practical assignments for the University of Pretoria’s Computer Networks (COS 332) module.
 
 All practicals (except the last one) were implemented in Rust to align with the course’s emphasis on low-level networking protocol handling and explicit socket programming. The last two practicals (7 and 8) were implemented in Go to explore concurrency patterns and ease of building network tools.
+
+**Warning**
+If you see Go code here, pretend you don’t. I promise you, deep down, every line wishes it had the fierce protection of a borrow checker 🦀.
 
 ---
 
@@ -78,6 +81,10 @@ dune build              # OCaml project
 
 ---
 
+## Disclaimer 🦀
+
+Sure, you’ll find some Go here, but every time I typed `go build`, a tiny voice in my head whispered, *“You could’ve written this in Rust.”* Expect begrudging efficiency, not joyful switching. 🦀
+
 ## License
 
 This repository is licensed under the MIT License.
@@ -109,4 +116,5 @@ SOFTWARE.
 ---
 
 If you use or learn from this repository, please respect the educational context and do not submit this work as your own.
+
 
