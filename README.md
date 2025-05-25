@@ -1,5 +1,5 @@
 # COS 332 Practical Assignments
-
+![](https://img.shields.io/badge/rust_powered%F0%9F%A6%80%E2%9C%A8-orange)
 This repository contains my completed practical assignments for the University of Pretoria’s Computer Networks (COS 332) module.
 
 All practicals (except the last one) were implemented in Rust to align with the course’s emphasis on low-level networking protocol handling and explicit socket programming. The last two practicals (7 and 8) were implemented in Go to explore concurrency patterns and ease of building network tools.
